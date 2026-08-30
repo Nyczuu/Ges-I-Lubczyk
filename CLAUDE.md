@@ -77,6 +77,11 @@ scope) surfaces during discussion. When unsure which case applies, say so and le
 
 ## Harness file conventions
 
+**Everything written into this repository is in English** — docs, specs, glossary entries, code comments,
+commit messages. Conversation happens in whatever language the developer is using; the artefacts do not
+follow it. In particular, do not quote the developer verbatim in a document when they wrote in another
+language — translate the point and attribute it instead.
+
 When creating or editing any `.claude/agents/*.md` or `.claude/skills/*/SKILL.md`, write the frontmatter
 `description` as a **folded block scalar** (`description: >-` followed by indented lines wrapped at ~96
 columns) — never a plain single-line scalar. A plain scalar silently breaks the entire frontmatter as

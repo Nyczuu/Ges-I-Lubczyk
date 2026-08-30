@@ -7,6 +7,32 @@ legacy nopCommerce 4.x codebase either — do not pattern-match onto either. Rea
 consult the other files in this folder and in [`../knowledge-base/`](../knowledge-base/00-index.md)
 before writing code.
 
+## ⚠️ Frame everything you do with this
+
+> ### **We are building a SHOP.**
+>
+> **nopCommerce _is_ a shop, and its vocabulary _is_ our vocabulary. Food is only what we happen to
+> sell.**
+
+This is the project owner's own framing, given as a correction when an earlier session drifted from it.
+
+There is **no separate domain layered on top of nopCommerce.** A jar of soup is a `Product`. A dietary
+claim is a `ProductTag`. A shipping surcharge is an `IShippingRateComputationMethod`. Reach for the
+shop's own concepts first, every time, and only invent something when a real requirement provably does
+not fit one of them.
+
+What this rules out, because each has already happened here:
+
+- Inventing domain vocabulary nobody asked for. A glossary draft once shipped nine speculative food
+  terms — cold chain, drained weight, shelf life — none of which any spec had put in play. They were cut.
+- Treating a feature request as an invitation to model an industry. "Add an ingredient list" is a shop
+  feature, not a food-compliance platform; EU labelling, allergen severity, and quantity percentages are
+  separate decisions the owner makes, not scope you assume.
+- Splitting docs into "platform" and "domain" halves. There is one vocabulary. See
+  [`../Glossary/README.md`](../Glossary/README.md).
+
+Scope grows when the owner grows it. Ask, or write it down as an open question — never widen quietly.
+
 ## Read order
 
 1. This file (behavioral rules).

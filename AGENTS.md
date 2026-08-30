@@ -9,10 +9,17 @@ task at hand — do not copy their content into this file.
 
 ## What this repo is
 
-A **hard fork of nopCommerce 5.00** (.NET 10, SDK `10.0.100` pinned in `global.json`) for a premium
-jarred/canned gastronomy B2C store, with planned expansion into confectionery. Hard fork means we do
+A **hard fork of nopCommerce 5.00** (.NET 10, SDK `10.0.100` pinned in `global.json`) for a B2C store
+selling premium jarred and canned food, with planned expansion into confectionery. Hard fork means we do
 not track upstream nopCommerce — it does **not** mean core is a free-for-all: see rule 3 of
 `00-system-instructions.md`.
+
+> **We are building a SHOP. nopCommerce _is_ a shop, and its vocabulary _is_ our vocabulary. Food is
+> only what we happen to sell.**
+>
+> There is no separate domain layered on top of the platform. Reach for the shop's own concepts first,
+> every time. Full framing, and what it rules out:
+> [`Docs/ai-harness/00-system-instructions.md`](Docs/ai-harness/00-system-instructions.md).
 
 | Area | Path |
 |---|---|
@@ -60,6 +67,7 @@ Red flags that mean *stop and ask a human* are listed at the end of
 | Code style | [`knowledge-base/12-coding-standards.md`](Docs/knowledge-base/12-coding-standards.md) + `.editorconfig` |
 | Tests | [`knowledge-base/13-testing.md`](Docs/knowledge-base/13-testing.md) |
 | Gastronomy domain mapped onto nopCommerce entities | [`ai-harness/05-domain-gastronomy-guidelines.md`](Docs/ai-harness/05-domain-gastronomy-guidelines.md) |
+| Canonical name for a concept, before naming anything new | [`Glossary/shop.md`](Docs/Glossary/shop.md) |
 | Cross-cutting refinement checklist | [`Standards/technical-considerations-checklist.md`](Docs/Standards/technical-considerations-checklist.md) |
 | Specs and process | [`Docs/index.md`](Docs/index.md), `Docs/Specs/` |
 | Claude Code specific harness loop | [`CLAUDE.md`](CLAUDE.md) |

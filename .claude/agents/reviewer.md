@@ -75,6 +75,15 @@ mirroring an existing one, defensive code for a state the architecture already p
 a DI-injected dependency, a try/catch around `IRepository<T>` "just in case"). Name the smaller version
 concretely.
 
+**Ubiquitous language.** Check new types, properties, events, and locale keys in the diff against
+[`Docs/Glossary/shop.md`](../../Docs/Glossary/shop.md). A name that is an alias for an existing canonical
+term — per that entry's "Aliases to avoid", or obviously the same concept renamed — is a **Notes**-level
+finding, not Blocking; this discipline is new enough that it should not gate merges. A genuinely new
+concept with no entry is also worth noting.
+
+**You read the glossary; you never write it.** `refinement-verifier` is the sole writer, same pattern as
+`Docs/BusinessLogic/`. Report the drift and let it propose the entry.
+
 **Tests.** Present for every new or changed service method, entity method, consumer, and migration; a
 real regression test for a bug fix; `AwesomeAssertions`, never `FluentAssertions`; inserts cleaned up
 before assertions.

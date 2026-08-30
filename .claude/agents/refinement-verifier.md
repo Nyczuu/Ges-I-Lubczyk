@@ -51,6 +51,28 @@ Read the code paths the spec touches and look for cases the spec does not mentio
 A corner case you can see in the code and the spec cannot is a gap, whether or not it turns out to matter
 — the decision to exclude it belongs to the developer, explicitly.
 
+## Check 4 — ubiquitous language
+
+You are the **sole writer** of `Docs/Glossary/` — `reviewer` reads it and reports drift, but never edits
+it. For each domain concept the spec puts in play, check
+[`Docs/Glossary/shop.md`](../../Docs/Glossary/shop.md):
+
+- **An entry exists.** Verify that the spec's wording *and* the real code identifiers both match the
+  canonical term, or are listed under its "Aliases to avoid". A three-way mismatch — the spec calls it
+  one thing, the code another, a doc a third, for evidently one concept — is a gap. **Surface it; do not
+  pick a winner.** Which name should be canonical is a human call: a business-facing name can
+  legitimately outrank a code name, or the reverse.
+- **No entry exists** for a concept the spec clearly relies on. Propose one as a **draft for the user to
+  confirm**, never written straight in. Follow the entry template in
+  [`Docs/Glossary/README.md`](../../Docs/Glossary/README.md) exactly: field order, one label per line,
+  bullet lists for two or more items, and symbol names only under "Defined in code" — no file paths, no
+  line numbers.
+- **Do not propose an entry just because a term sounds domain-specific.** Entries grow from what a spec
+  actually needs; the first draft of this glossary shipped nine speculative food terms that were cut. A
+  concept the spec mentions only in passing does not need a name yet.
+
+Name entries after the **generic mechanism**, not the spec that surfaced it.
+
 ## Post-implementation mode
 
 When invoked after the change merged, add: **does the spec still describe what shipped?** Compare spec
