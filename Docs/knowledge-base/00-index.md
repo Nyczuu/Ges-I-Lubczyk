@@ -26,6 +26,10 @@ holds the *behavioral* rules for the assistant; this folder holds the *factual* 
 | [11-deployment-docker-iis-azure.md](11-deployment-docker-iis-azure.md) | Native Dockerfile walkthrough, hosting options, plugin build gotchas |
 | [12-coding-standards.md](12-coding-standards.md) | .editorconfig-enforced style rules, naming conventions |
 | [13-testing.md](13-testing.md) | `Nop.Tests` structure, NUnit + Moq + AwesomeAssertions pattern |
+| [14-product-relations-map.md](14-product-relations-map.md) | Reverse index: every way a product points at another product, at a classification, or at its variants — with depth and semantics |
+
+Files 01–13 are organized by subsystem: you read them when you know which subsystem you are in. File 14
+is organized by **question** — read it when you are about to conclude that a mechanism does not exist.
 
 ## Version grounding (important)
 

@@ -14,9 +14,25 @@ future expansion into confectionery) onto nopCommerce's entity model. Use this a
 | Dietary tags (vegan, gluten-free, allergen list, kosher, etc.) | `Product` | **`ProductTag`** (nopCommerce's existing product tag entity) for simple, facetable, storefront-filterable tags — this is already exactly what `ProductTag` is for, don't reinvent it as a custom table | Reuse the built-in mechanism; tags are already indexed, searchable, and rendered as storefront facets |
 | Allergen structured data (severity, cross-contamination warnings) | New entity | **New plugin-owned entity** (`ProductAllergen`) if it needs structure beyond a tag (e.g. severity level, "may contain traces of") | `ProductTag` is a flat label; use it for simple yes/no facets, a dedicated table for anything with sub-fields |
 | Net weight / drained weight (common for jarred/canned goods) | `Product` | **`GenericAttribute`** if display-only; **schema migration** if used in shipping weight calculation or filterable | Existing `Product.Weight` may already suffice for shipping — check before adding a duplicate field |
-| Ingredient list / ingredients-of-concern | `Product` | **`GenericAttribute`** (long text, rarely queried) or a rich-text field on the product's specification attributes if already using `SpecificationAttribute` | Prefer nopCommerce's existing `SpecificationAttribute`/`SpecificationAttributeOption` system for structured, filterable spec data before inventing a new column |
+| Ingredient list / ingredients-of-concern ⚠️ **contested — see below** | `Product` | **`GenericAttribute`** (long text, rarely queried) or a rich-text field on the product's specification attributes if already using `SpecificationAttribute` | Prefer nopCommerce's existing `SpecificationAttribute`/`SpecificationAttributeOption` system for structured, filterable spec data before inventing a new column |
 | Packaging fragility / temperature control requirement | `Product` (flag) + carrier logic | **`GenericAttribute`** flag on `Product`; consumed inside a custom `IShippingRateComputationMethod.GetShippingOptionsAsync`/`GetFixedRateAsync` to apply a surcharge or restrict certain shipping methods | This is shipping business logic, not a data-modeling problem — belongs in a shipping plugin, not a core change |
 | Confectionery expansion (future category) | New `Category`/`ProductAttribute` combinations | No engine change needed | nopCommerce's category/manufacturer/attribute system already supports multiple product lines under one catalog — confectionery is new *catalog data*, not a new entity type |
+
+### ⚠️ Contested: the ingredient-list row
+
+The guidance above assumes an ingredient list is flat text or a set of filterable spec values. GIL-001
+found that requirement to be **recursive** — an ingredient can itself be composed of ingredients (beef
+broth in onion soup), and `SpecificationAttribute` has exactly one grouping level with no
+attribute-to-attribute relation, so the composition is inexpressible in it. `GenericAttribute` cannot
+answer "which products contain celery", which is the point for allergens.
+
+This row is therefore **suspected wrong for the real requirement**, but it has not been corrected yet:
+the decision is open as Q9 in
+[`../Specs/GIL-001-product-ingredients/spec.md`](../Specs/GIL-001-product-ingredients/spec.md). Do not
+follow this row for an ingredient-composition feature without checking that spec first. When Q9 is
+answered, either this row is rewritten or GIL-001's rejection is withdrawn — one of the two must happen
+in the same commit as the implementation, so the harness stops prescribing a mechanism the project
+rejected.
 
 ## Recommended plugin(s) for this domain
 
@@ -45,7 +61,17 @@ Before adding any new column or entity, check whether the need is already covere
 - `Manufacturer` — if "premium gastronomy" vs. future "confectionery" line should be modeled as
   distinct manufacturers/brands rather than categories, depending on how the business actually wants
   it merchandised (a product decision to confirm with the business owner, not purely technical).
+- **`FilterLevelValue` / `FilterLevelValueProductMapping`** — a hierarchical, `ILocalizedEntity`,
+  product-mapped classification with **three fixed levels**, shipping with its own admin controller,
+  permission set and storefront search. The closest thing nopCommerce has to a localized product
+  taxonomy deeper than one level. Was missing from this list until GIL-001; check it before concluding
+  a hierarchy needs a new table.
 
 Reserve new domain entities and migrations for data that genuinely doesn't fit these existing,
 already-indexed, already-admin-UI-integrated mechanisms — most "add a jar-goods field" asks resolve to
 `ProductTag` or `SpecificationAttribute` rather than a new table.
+
+Before concluding that no existing mechanism fits, read
+[`../knowledge-base/14-product-relations-map.md`](../knowledge-base/14-product-relations-map.md) — it is
+the exhaustive reverse index of how a product can point at another product, at a classification, or at
+its variants, with the depth each one supports.

@@ -52,7 +52,9 @@ New plugin-owned entities. The composition is relational and must be queryable, 
 `GenericAttribute` regardless of the other arguments.
 
 Existing mechanisms considered and rejected (checklist item S5). Everything below is verified against
-`src/`:
+`src/`. The exhaustive list of what exists — including the relations this spec originally missed — now
+lives in [`Docs/knowledge-base/14-product-relations-map.md`](../../knowledge-base/14-product-relations-map.md);
+the table here records only the rejection reasons specific to this feature.
 
 | Mechanism | Evidence | Why it does not fit |
 |---|---|---|

@@ -87,6 +87,28 @@ When text-searching, exclude the noise that matches nearly every domain term:
 string in the product), `src/Presentation/Nop.Web/wwwroot/lib/**`, `**/*.min.js`, `**/*.min.css`, and
 `src/Presentation/Nop.Web/Plugins/**` (plugin build output, a duplicate of compiled plugin assemblies).
 
+### Never conclude a mechanism does not exist from a filename search
+
+Deciding that nopCommerce has no mechanism for something is a **design-changing claim**, and it needs a
+higher standard of evidence than finding one. A file listing or a `grep` over file names does not meet it:
+nopCommerce carries load-bearing semantics in places that have no file of their own.
+
+- **Properties on an existing entity** — `Product.ParentGroupedProductId` is a product-to-product
+  relation living inside `Product.cs`.
+- **Enum members** — `AttributeValueType.AssociatedToProduct` *is* nopCommerce's bundling mechanism; the
+  enum file is named after the type, not the capability.
+- **String-encoded relations** — `Product.RequiredProductIds` is a comma-separated list of product ids,
+  invisible even to a correct typed search for `int *ProductId`.
+
+Before writing "there is no X in this codebase": search at the **member** level, not the file level; read
+the XML comments on what you find (they are generally accurate and name the concept); and check
+[`Docs/knowledge-base/14-product-relations-map.md`](Docs/knowledge-base/14-product-relations-map.md),
+which is a reverse index built for exactly this question. Then state what you searched, so the next
+reader can judge the claim rather than inherit it.
+
+This rule exists because the first spec written under this harness concluded "no bill-of-materials
+mechanism exists" from a filename search, and named two of the six product-to-product relations.
+
 ## Process constraints
 
 1. **One PR, one concern — split, and stack when it is all one task.** Order that works: harness/docs
