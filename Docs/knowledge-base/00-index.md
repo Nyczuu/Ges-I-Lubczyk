@@ -25,7 +25,7 @@ holds the *behavioral* rules for the assistant; this folder holds the *factual* 
 | [10-configuration-appsettings.md](10-configuration-appsettings.md) | `appsettings.json` sections, env var overrides, `DataConfig` |
 | [11-deployment-docker-iis-azure.md](11-deployment-docker-iis-azure.md) | Native Dockerfile walkthrough, hosting options, plugin build gotchas |
 | [12-coding-standards.md](12-coding-standards.md) | .editorconfig-enforced style rules, naming conventions |
-| [13-testing.md](13-testing.md) | `Nop.Tests` structure, NUnit + FluentAssertions pattern |
+| [13-testing.md](13-testing.md) | `Nop.Tests` structure, NUnit + Moq + AwesomeAssertions pattern |
 
 ## Version grounding (important)
 
