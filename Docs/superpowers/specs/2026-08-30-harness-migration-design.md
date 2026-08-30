@@ -99,6 +99,18 @@ reference `Nop.Web.csproj` about as often as `Nop.Web.Framework.csproj`, and the
 migrations run at application startup, so a rolling ECS deployment requires expand/contract discipline —
 recorded in `migration-standards-check` and `deployment-standards-check`.
 
+## First gap the harness surfaced on itself
+
+The first real run of the harness's own verification command failed: `dotnet build src/NopCommerce.sln`
+produced 4836 errors, every one `NU1301` / `401` against a CodeArtifact feed belonging to an unrelated
+employer project. This repo had no `nuget.config`, so restore inherited the machine-level one.
+
+Two things came out of it, and both are the loop working as intended. A root `nuget.config` with
+`<clear />` now isolates the repo (build: 0 errors, 2:58; tests: 1098 passed, 0 failed, 10 skipped). And
+`dotnet-build-doctor` gained the signature — it had been written to cover nopCommerce-specific failures
+and missed the most basic environmental one, which is exactly the kind of gap that only shows up when
+something is actually run rather than reviewed.
+
 ## Rejected alternatives
 
 - **Restructuring `Docs/` to mirror Product Catalog's `Standards/`+`Architecture/` layout.** Would have
