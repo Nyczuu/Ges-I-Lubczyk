@@ -37,6 +37,28 @@ The `NopTarget` post-build target invoking `Build/ClearPluginAssemblies.proj` is
 target from a sibling plugin. Related: `CopyLocalLockFileAssemblies` set to `true` when the plugin has no
 NuGet dependencies that need it.
 
+## Thousands of errors, all NU1301 / 401 against a feed that is not nuget.org
+
+```
+error NU1301: Unable to load the service index for source https://<something>.codeartifact...
+error NU1301:   Response status code does not indicate success: 401 (Unauthorized).
+```
+
+Restore is querying a private feed inherited from the machine-level
+`%APPDATA%\NuGet\NuGet.Config`, whose credentials have expired. Every package fails, so the error count
+is enormous and looks catastrophic — it is one problem, not thousands, and none of them are in the code.
+
+The repo-level `nuget.config` at the root exists to prevent exactly this: its `<clear />` drops inherited
+sources before adding nuget.org. If you see this signature, check that file is present and that the build
+is running from the repo root. Confirm the diagnosis cheaply before acting:
+
+```bash
+dotnet restore src/Libraries/Nop.Core/Nop.Core.csproj --source https://api.nuget.org/v3/index.json
+```
+
+If that succeeds, the private feed is the whole problem. Never "fix" this by adding credentials for a
+feed this project does not need packages from.
+
 ## SDK version mismatch
 
 `global.json` pins `10.0.100` with `rollForward: latestFeature`. A machine without a 10.0.x SDK fails at
