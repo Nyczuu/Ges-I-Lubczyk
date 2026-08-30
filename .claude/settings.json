@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(**/wwwroot/lib/**)",
+      "Read(**/*.min.js)",
+      "Read(**/*.min.css)",
+      "Read(**/App_Data/Localization/**)",
+      "Read(**/Presentation/Nop.Web/Plugins/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \".claude/hooks/block-raw-scripting.mjs\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \".claude/hooks/block-forbidden-stack.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

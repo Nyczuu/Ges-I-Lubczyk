@@ -1,0 +1,30 @@
+name: Lint AI Harness
+
+on:
+  pull_request:
+    paths:
+      - '.claude/**'
+      - 'Docs/**'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - '.github/scripts/lint-ai-harness.py'
+      - '.github/workflows/05.lint-ai-harness.yml'
+  push:
+    branches: [ develop ]
+    paths:
+      - '.claude/**'
+      - 'Docs/**'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - '.github/scripts/lint-ai-harness.py'
+      - '.github/workflows/05.lint-ai-harness.yml'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Lint harness files
+        run: python3 .github/scripts/lint-ai-harness.py
