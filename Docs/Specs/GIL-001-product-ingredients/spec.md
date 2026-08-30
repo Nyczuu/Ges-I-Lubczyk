@@ -560,3 +560,326 @@ render accepted as satisfying "single query" intent; (2) max-depth-3 confirmed t
 ingredient-to-ingredient composition edges, not the product attachment hop; (3) single-value allergen
 classification per row accepted, multi-allergen ingredients modeled as a 2-level composite; (4)
 concurrent write conflicts surface as a generic retry error, no automatic retry.
+
+## Implementation plan (implementation-planner)
+
+Read `Docs/Specs/GIL-001-product-ingredients/spec.md` in full (including the `## Technical design
+(ddd-modeler)` section). Cross-checked every mirror below against the actual current file, not memory:
+`Nop.Plugin.Misc.RFQ`, `Nop.Plugin.Misc.News`, `Nop.Plugin.Misc.Zettle`, `Nop.Plugin.Payments.PayPalCommerce`,
+`Nop.Plugin.Tax.Avalara`, `ProductController.cs`, `CategoryController.cs`/`CategoryModelFactory.cs`,
+`CategoryBuilder.cs`/`RelatedProductBuilder.cs`/`FilterLevelValueBuilder.cs`/
+`FilterLevelValueProductMappingBuilder.cs`/`CustomWishlistBuilder.cs`, `BaseAdminMenuCreatedEventConsumer.cs`,
+`CacheEventConsumer.cs`, `NopStartup.cs` (`Nop.Web.Framework`), `EntityRepository.cs`, `PermissionService.cs`,
+and the test harness (`ServiceTest.cs`, `EventsTests.cs`).
+
+All paths below are new — there is no existing `Nop.Plugin.Misc.Ingredients` folder, and nothing in core is
+changed.
+
+### Files
+
+**`src/Plugins/Nop.Plugin.Misc.Ingredients/Nop.Plugin.Misc.Ingredients.csproj`** — new (mirrors RFQ's
+csproj). `TargetFramework net10.0`, `OutputPath`/`OutDir` =
+`$(SolutionDir)\Presentation\Nop.Web\Plugins\Misc.Ingredients`, `CopyLocalLockFileAssemblies=false`,
+`ImplicitUsings=enable`. `<None Remove>`/`<Content Include CopyToOutputDirectory=PreserveNewest>` pair for
+every `.cshtml`, `plugin.json`, `logo.png`. `ProjectReference` to `Nop.Web.csproj`; `ClearPluginAssemblies` +
+`NopTarget` `AfterTargets="Build"` MSBuild target copied from RFQ.
+
+**`src/Plugins/Nop.Plugin.Misc.Ingredients/plugin.json`** — new (mirrors RFQ's). `Group: "Misc"`,
+`FriendlyName: "Ingredients"`, `SystemName: "Misc.Ingredients"`, `Version`, `SupportedVersions: ["5.00"]`,
+`FileName: "Nop.Plugin.Misc.Ingredients.dll"`.
+
+**`src/Plugins/Nop.Plugin.Misc.Ingredients/logo.png`** — new (placeholder).
+
+**`IngredientsDefaults.cs`** — new (mirrors `NewsDefaults.cs`):
+```csharp
+public class IngredientsDefaults
+{
+    public static string SystemName => "Misc.Ingredients";
+    public static string IngredientsMenuSystemName => "Ingredients";
+    public static class Routes
+    {
+        private const string ROUTE_PREFIX = "Plugin.Misc.Ingredients.Route.";
+        public static class Admin
+        {
+            public static string ListRouteName => ROUTE_PREFIX + "List";
+            public static string EditRouteName => ROUTE_PREFIX + "Edit";
+        }
+    }
+}
+```
+
+**`IngredientsPlugin.cs`** — new (mirrors `RfqPlugin.cs` install/uninstall shape + `NewsPlugin.cs`
+dual-widget-zone dispatch):
+```csharp
+public class IngredientsPlugin : BasePlugin, IMiscPlugin, IWidgetPlugin
+{
+    // ctor: ILocalizationService, INopUrlHelper, IPermissionService, IRepository<LocalizedProperty>, ISettingService, WidgetSettings
+    public override string GetConfigurationPageUrl();
+    public override Task InstallAsync();   // locale resources + WidgetSettings.ActiveWidgetSystemNames.Add
+    public override Task UninstallAsync(); // remove WidgetSettings entry; delete both PermissionRecords; DeleteLocaleResourcesAsync; THEN _localizedPropertyRepository.DeleteAsync(lp => lp.LocaleKeyGroup == nameof(Ingredient)) before base.UninstallAsync()/ApplyDownMigrations drops the table
+    public Type GetWidgetViewComponent(string widgetZone); // AdminWidgetZones.ProductDetailsBlock -> ProductIngredientsAdminViewComponent; else -> IngredientsViewComponent
+    public Task<IList<string>> GetWidgetZonesAsync(); // [PublicWidgetZones.ProductDetailsBeforeCollateral, AdminWidgetZones.ProductDetailsBlock]
+    public bool HideInWidgetList => true;
+}
+```
+
+**`Domain/Ingredient.cs`** — new:
+```csharp
+public class Ingredient : BaseEntity, ILocalizedEntity
+{
+    public string Name { get; set; }
+    public string Description { get; set; }
+    public int AllergenId { get; set; }
+    public AllergenType Allergen { get => (AllergenType)AllergenId; set => AllergenId = (int)value; }
+    public DateTime CreatedOnUtc { get; set; }
+    public DateTime UpdatedOnUtc { get; set; }
+}
+```
+
+**`Domain/AllergenType.cs`** — new:
+`enum AllergenType { None = 0, CerealsContainingGluten, Crustaceans, Eggs, Fish, Peanuts, Soybeans, Milk,
+Nuts, Celery, Mustard, SesameSeeds, SulphurDioxideAndSulphites, Lupin, Molluscs }`
+
+**`Domain/IngredientComposition.cs`** — new:
+`class IngredientComposition : BaseEntity { int ParentIngredientId; int ChildIngredientId; int DisplayOrder; }`
+
+**`Domain/IngredientClosure.cs`** — new (no existing mirror for the closure concept itself):
+`class IngredientClosure : BaseEntity { int AncestorIngredientId; int DescendantIngredientId; int Depth; }`
+
+**`Domain/ProductIngredientMapping.cs`** — new (mirrors `FilterLevelValueProductMapping.cs`):
+`class ProductIngredientMapping : BaseEntity { int ProductId; int IngredientId; int DisplayOrder; }`
+
+**`Data/Mapping/Builders/IngredientBuilder.cs`** — new (mirrors `CategoryBuilder.cs`):
+```csharp
+public class IngredientBuilder : NopEntityBuilder<Ingredient>
+{
+    public override void MapEntity(CreateTableExpressionBuilder table) =>
+        table.WithColumn(nameof(Ingredient.Name)).AsString(400).NotNullable();
+}
+```
+
+**`Data/Mapping/Builders/IngredientCompositionBuilder.cs`** — new (mirrors `RelatedProductBuilder.cs`,
+empty body — no FK).
+
+**`Data/Mapping/Builders/IngredientClosureBuilder.cs`** — new (mirrors `RelatedProductBuilder.cs`, empty
+body).
+
+**`Data/Mapping/Builders/ProductIngredientMappingBuilder.cs`** — new:
+```csharp
+public class ProductIngredientMappingBuilder : NopEntityBuilder<ProductIngredientMapping>
+{
+    public override void MapEntity(CreateTableExpressionBuilder table) => table
+        .WithColumn(nameof(ProductIngredientMapping.ProductId)).AsInt32().ForeignKey<Product>()
+        .WithColumn(nameof(ProductIngredientMapping.IngredientId)).AsInt32().ForeignKey<Ingredient>(onDelete: Rule.None);
+}
+```
+No `INameCompatibility` file — table names equal unqualified type names.
+
+**`Data/Migrations/SchemaMigration.cs`** — new. Exact code already given in the technical design (`Up()`
+creates 4 tables, `Down()` drops in reverse).
+
+**`Services/IIngredientService.cs`** + **`IngredientService.cs`** — new:
+```csharp
+public interface IIngredientService
+{
+    Task<Ingredient> GetIngredientByIdAsync(int ingredientId);
+    Task<IPagedList<Ingredient>> GetAllIngredientsAsync(string name = null, int pageIndex = 0, int pageSize = int.MaxValue);
+    Task InsertIngredientAsync(Ingredient ingredient);
+    Task UpdateIngredientAsync(Ingredient ingredient);
+    Task DeleteIngredientAsync(Ingredient ingredient); // throws (names composite ingredients + products still using it) when in use; else deletes own outgoing IngredientComposition rows + recomputes closure
+}
+```
+**Resolved (transaction shape):** per spec §10/Q11 ("the whole operation is transactional; a
+half-created ingredient is not acceptable"), `InsertIngredientAsync`/`UpdateIngredientAsync` accept the
+locale list and own a `CreateTransactionScope()` wrapping the entity write and the `LocalizedProperty`
+writes together — the service owns the transaction, not the admin controller.
+
+**`Services/IIngredientCompositionService.cs`** + **`IngredientCompositionService.cs`** — new:
+```csharp
+public interface IIngredientCompositionService
+{
+    Task<IList<IngredientComposition>> GetChildCompositionsAsync(int parentIngredientId);
+    Task<IngredientComposition> GetIngredientCompositionByIdAsync(int ingredientCompositionId);
+    Task AddChildIngredientAsync(int parentIngredientId, int childIngredientId, int displayOrder = 0); // transactional: validate (self-loop/cycle/depth>3 against IngredientClosure) -> insert edge -> full closure recompute -> transaction.Complete()
+    Task UpdateDisplayOrderAsync(int ingredientCompositionId, int displayOrder);
+    Task RemoveChildIngredientAsync(IngredientComposition ingredientComposition);
+}
+```
+
+**`Services/IProductIngredientService.cs`** + **`ProductIngredientService.cs`** — new, kept as a separate
+service from `IIngredientCompositionService` (resolved — the design left this open, developer confirmed
+keeping them separate):
+```csharp
+public interface IProductIngredientService
+{
+    Task<IPagedList<ProductIngredientMapping>> GetProductIngredientsByProductIdAsync(int productId, int pageIndex = 0, int pageSize = int.MaxValue);
+    Task<ProductIngredientMapping> GetProductIngredientByIdAsync(int productIngredientMappingId);
+    Task InsertProductIngredientAsync(ProductIngredientMapping productIngredientMapping);
+    Task UpdateProductIngredientAsync(ProductIngredientMapping productIngredientMapping);
+    Task DeleteProductIngredientAsync(ProductIngredientMapping productIngredientMapping);
+    Task<IList<Ingredient>> GetDirectIngredientsByProductIdAsync(int productId);
+    Task<IList<IngredientComposition>> GetCompositionsReachableFromAsync(IList<int> rootIngredientIds);
+}
+```
+
+**`Services/IngredientsPermissionConfigManager.cs`** — new (mirrors `RfqPermissionConfigManager.cs`).
+Exact code already given in the technical design. Auto-discovered by `PermissionService` typeFinder — no
+DI registration needed, needs public parameterless ctor.
+
+**`Services/Caching/IngredientCacheEventConsumer.cs`** — new:
+`public class IngredientCacheEventConsumer : CacheEventConsumer<Ingredient>;`
+
+**`Services/Events/IngredientsMenuEventConsumer.cs`** — new:
+```csharp
+public class IngredientsMenuEventConsumer : BaseAdminMenuCreatedEventConsumer
+{
+    public IngredientsMenuEventConsumer(ILocalizationService localizationService, INopUrlHelper nopUrlHelper,
+        IPermissionService permissionService, IPluginManager<IPlugin> pluginManager) : base(pluginManager) { ... }
+    protected override Task<bool> CheckAccessAsync(); // AuthorizeAsync(INGREDIENTS_VIEW)
+    protected override Task<AdminMenuItem> GetAdminMenuItemAsync(IPlugin plugin);
+    protected override string PluginSystemName => IngredientsDefaults.SystemName;
+    protected override MenuItemInsertType InsertType => MenuItemInsertType.After;
+    protected override string AfterMenuSystemName => "Filter level values";
+}
+```
+
+**`Infrastructure/NopStartup.cs`** — new:
+```csharp
+public class NopStartup : INopStartup
+{
+    public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddScoped<IIngredientService, IngredientService>();
+        services.AddScoped<IIngredientCompositionService, IngredientCompositionService>();
+        services.AddScoped<IProductIngredientService, ProductIngredientService>();
+        services.AddScoped<IngredientAdminModelFactory>();
+    }
+    public void Configure(IApplicationBuilder application) { }
+    public int Order => 3000;
+}
+```
+Consumers (`IConsumer<T>`) auto-discovered — no entry needed.
+
+**`Infrastructure/RouteProvider.cs`** — new. Two named routes only (`ListRouteName`, `EditRouteName`) —
+everything else uses conventional Admin routing.
+
+**`Admin/Controllers/IngredientsAdminController.cs`** — new:
+```csharp
+[Area(AreaNames.ADMIN)]
+[AutoValidateAntiforgeryToken]
+[ValidateIpAddress]
+[AuthorizeAdmin]
+[SaveSelectedTab]
+public class IngredientsAdminController : BasePluginController
+{
+    public IActionResult Index();
+    [CheckPermission(INGREDIENTS_VIEW)] Task<IActionResult> List();
+    [HttpPost][CheckPermission(INGREDIENTS_VIEW)] Task<IActionResult> List(IngredientSearchModel searchModel);
+    [CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> Create();
+    [HttpPost, ParameterBasedOnFormName("save-continue","continueEditing")][CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> Create(IngredientModel model, bool continueEditing);
+    [CheckPermission(INGREDIENTS_VIEW)] Task<IActionResult> Edit(int id);
+    [HttpPost, ParameterBasedOnFormName("save-continue","continueEditing")][CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> Edit(IngredientModel model, bool continueEditing);
+    [HttpPost][CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> Delete(int id);
+
+    // nested composition grid (Ingredient edit page)
+    [HttpPost][CheckPermission(INGREDIENTS_VIEW)] Task<IActionResult> IngredientCompositionList(IngredientCompositionSearchModel searchModel);
+    [HttpPost][CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> IngredientCompositionUpdate(IngredientCompositionModel model);
+    [HttpPost][CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> IngredientCompositionDelete(int id);
+    [CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> IngredientCompositionAddPopup(int parentIngredientId);
+    [HttpPost][CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> IngredientCompositionAddPopupList(IngredientSearchModel searchModel);
+    [HttpPost][FormValueRequired("save")][CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> IngredientCompositionAddPopup(AddIngredientCompositionModel model);
+
+    // product-tab grid
+    [HttpPost][CheckPermission(INGREDIENTS_VIEW)] Task<IActionResult> ProductIngredientList(ProductIngredientSearchModel searchModel);
+    [HttpPost][CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> ProductIngredientUpdate(ProductIngredientModel model);
+    [HttpPost][CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> ProductIngredientDelete(int id);
+    [CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> ProductIngredientAddPopup(int productId);
+    [HttpPost][CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> ProductIngredientAddPopupList(IngredientSearchModel searchModel);
+    [HttpPost][FormValueRequired("save")][CheckPermission(INGREDIENTS_CREATE_EDIT_DELETE)] Task<IActionResult> ProductIngredientAddPopup(AddProductIngredientModel model);
+}
+```
+No vendor-ownership guard anywhere — Administrators-only, no vendor concept.
+
+**Admin models** — all new, under `Admin/Models/`: `IngredientModel.cs` (`ILocalizedModel<IngredientLocalizedModel>`:
+`Name`, `Description`, `AllergenId`, `AvailableAllergenTypes`, `Locales`), `IngredientSearchModel.cs`,
+`IngredientListModel.cs`, `IngredientCompositionModel.cs`, `IngredientCompositionSearchModel.cs`,
+`IngredientCompositionListModel.cs`, `AddIngredientCompositionModel.cs`, `ProductIngredientModel.cs`,
+`ProductIngredientSearchModel.cs`, `ProductIngredientListModel.cs`, `AddProductIngredientModel.cs` — each
+mirrors the named `NewsItem*`/`RelatedProduct*`/`FilterLevelValue*` equivalent.
+
+**`Admin/Validators/IngredientValidator.cs`** — new. `BaseNopValidator<IngredientModel>` —
+`RuleFor(x => x.Name).NotEmpty()`, `SetDatabaseValidationRules<Ingredient>()`.
+
+**`Admin/Factories/IngredientAdminModelFactory.cs`** — new: `PrepareIngredientSearchModelAsync`,
+`PrepareIngredientListModelAsync`, `PrepareIngredientModelAsync(...)`,
+`PrepareIngredientCompositionListModelAsync`, `PrepareProductIngredientListModelAsync`,
+`PrepareAddIngredientSearchModelAsync`.
+
+**Admin views** — all new, under `Admin/Views/`: `_ViewImports.cshtml`, `_ViewStart.cshtml`,
+`List.cshtml`, `Create.cshtml`, `Edit.cshtml`, `_CreateOrUpdate.cshtml`, `_CreateOrUpdate.Info.cshtml`
+(localized editor + `AllergenId` select), `_CreateOrUpdate.Composition.cshtml` (mirrors
+`_CreateOrUpdate.RelatedProducts.cshtml`), `IngredientCompositionAddPopup.cshtml` (mirrors
+`FilterLevelValuesAddPopup.cshtml`).
+
+**`Admin/Components/ProductIngredientsAdminViewComponent.cs`** — new (mirrors Avalara's
+`EntityUseCodeViewComponent.cs`). Renders into `AdminWidgetZones.ProductDetailsBlock`, checks
+`INGREDIENTS_VIEW`, builds its own `ProductIngredientSearchModel { ProductId = entityModel.Id }` — no
+change to core `ProductModel.cs` or `_CreateOrUpdate.cshtml`.
+
+**`Admin/Views/Components/ProductIngredients.cshtml`** — new. Real
+`<nop-card asp-name="product-ingredients" ...>` fragment, same grid pattern as Composition tab, pointed at
+`ProductIngredient*` actions.
+
+**`Admin/Views/ProductIngredientAddPopup.cshtml`** — new.
+
+**`Public/Components/IngredientsViewComponent.cs`** — new. 2-query storefront read (per resolved open
+question), builds nested "beef broth (bones, water, ...)" text bounded to 3 levels. Invoked from existing
+`ProductTemplate.Simple.cshtml:157`/`ProductTemplate.Grouped.cshtml:110` — no change to either file.
+
+**`Public/Views/Components/Ingredients.cshtml`** — new.
+
+**Test-infra wiring (resolved — see below):** add a `ProjectReference` from `Nop.Tests.csproj` to
+`Nop.Plugin.Misc.Ingredients.csproj`, and register the plugin in `ServiceTest.InitPlugins()` so its
+services/consumers/migration are actually exercised under the SQLite-backed test harness — first of its
+kind in this repo (no existing plugin has test coverage), approved explicitly by the developer rather than
+left as a silent gap.
+
+### Order of work
+
+1. `Domain/*.cs` — 2. `Data/Mapping/Builders/*.cs` — 3. `Data/Migrations/SchemaMigration.cs` — 4.
+`Services/I*.cs`+`Services/*.cs` (closure/cycle logic is the crux) — 5.
+`IngredientsPermissionConfigManager.cs`, `IngredientCacheEventConsumer.cs` — 6. `IngredientsDefaults.cs` —
+7. `IngredientsPlugin.cs`, `Infrastructure/NopStartup.cs`, `Infrastructure/RouteProvider.cs` — 8.
+`IngredientsMenuEventConsumer.cs` — 9. `Admin/Models/*.cs`, `IngredientValidator.cs` — 10.
+`IngredientAdminModelFactory.cs` — 11. `IngredientsAdminController.cs` — 12. `Admin/Views/*.cshtml` — 13.
+`ProductIngredientsAdminViewComponent.cs` + its view + add-popup view — 14. `IngredientsViewComponent.cs` +
+its view — 15. `Nop.Tests` wiring (ProjectReference + `InitPlugins()` entry) alongside the test files below
+— 16. Build, install in a running instance, verify migration/menu/tab/widget all appear.
+
+### Tests
+
+`Nop.Tests/Nop.Services.Tests/Ingredients/IngredientServiceTests.cs`, `IngredientCompositionServiceTests.cs`
+(self-loop/cycle/depth-limit/closure-recompute — no existing mirror), `ProductIngredientServiceTests.cs`,
+`IngredientCacheEventConsumerTests.cs` (no existing `*CacheEventConsumerTests` file anywhere — first of its
+kind). Migration exercised implicitly via SQLite-backed `ServiceTest`. Localized-name-fallback covered
+inside `IngredientServiceTests`.
+
+### Standards skills to load
+`plugin-scaffold`, `plugin-standards-check`, `entity-extension-check`, `migration-standards-check`,
+`data-access-standards-check`, `caching-standards-check`, `event-consumer-standards-check`,
+`security-permissions-check`, `localization-standards-check`, `admin-ui-standards-check`,
+`testing-standards-check`.
+
+### Gaps — resolved
+
+- **Test infra.** Developer approved adding the `Nop.Tests` → plugin `ProjectReference` and
+  `ServiceTest.InitPlugins()` entry (first of its kind in this repo) rather than accepting a coverage gap.
+- **Transaction shape.** Resolved above — the service, not the controller, owns the transaction scope for
+  entity + `LocalizedProperty` writes, per spec §10/Q11.
+- **Service split.** Resolved above — `IProductIngredientService` stays separate from
+  `IIngredientCompositionService`.
+
+**Approved by:** Mateusz Nycz
+**Date:** 2026-08-30
+**Revision notes:** none beyond the three gap resolutions folded in above; no re-invocation of
+implementation-planner was needed.
