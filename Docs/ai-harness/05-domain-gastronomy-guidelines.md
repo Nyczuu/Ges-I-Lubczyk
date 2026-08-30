@@ -12,27 +12,11 @@ future expansion into confectionery) onto nopCommerce's entity model. Use this a
 | Batch/lot number | `Product` (or per-unit if tracked at `ProductAttributeCombination`/stock level) | **Schema migration** — new nullable column, queryable | Needed for recalls, traceability, admin filtering by batch; must be indexable and reportable |
 | Expiration / best-before date | `Product`, and per-batch if batches expire independently | **Schema migration** on `Product` for a simple "shelf life days" model; a **new plugin-owned entity** (`Nop.Plugin.Misc.GastronomyCompliance.Domain.ProductBatch`) if batches are tracked as first-class records with their own expiry, quantity, and warehouse | A "products expiring within N days" admin report requires `WHERE`/`ORDER BY` on this — GenericAttribute is the wrong tool here |
 | Dietary tags (vegan, gluten-free, allergen list, kosher, etc.) | `Product` | **`ProductTag`** (nopCommerce's existing product tag entity) for simple, facetable, storefront-filterable tags — this is already exactly what `ProductTag` is for, don't reinvent it as a custom table | Reuse the built-in mechanism; tags are already indexed, searchable, and rendered as storefront facets |
-| Allergen structured data (severity, cross-contamination warnings) | New entity | **New plugin-owned entity** (`ProductAllergen`) if it needs structure beyond a tag (e.g. severity level, "may contain traces of") | `ProductTag` is a flat label; use it for simple yes/no facets, a dedicated table for anything with sub-fields |
+| Allergen structured data (severity, cross-contamination warnings) | New entity | **New plugin-owned entity** (`ProductAllergen`) if it needs structure beyond a tag (e.g. severity level, "may contain traces of") | `ProductTag` is a flat label; use it for simple yes/no facets, a dedicated table for anything with sub-fields. **Check for overlap with `Nop.Plugin.Misc.Ingredients` first** ([GIL-001](../Specs/GIL-001-product-ingredients/spec.md)) — its `Ingredient` entity already carries a per-ingredient allergen classification (an enum of the 14 EU-regulated allergens); a severity/cross-contamination feature may extend that instead of duplicating allergen modeling at the product level |
 | Net weight / drained weight (common for jarred/canned goods) | `Product` | **`GenericAttribute`** if display-only; **schema migration** if used in shipping weight calculation or filterable | Existing `Product.Weight` may already suffice for shipping — check before adding a duplicate field |
-| Ingredient list / ingredients-of-concern ⚠️ **contested — see below** | `Product` | **`GenericAttribute`** (long text, rarely queried) or a rich-text field on the product's specification attributes if already using `SpecificationAttribute` | Prefer nopCommerce's existing `SpecificationAttribute`/`SpecificationAttributeOption` system for structured, filterable spec data before inventing a new column |
+| Ingredient list, with composite/recursive ingredients | New entity | **New plugin-owned entity**, self-referencing composition (`Nop.Plugin.Misc.Ingredients`, see [GIL-001](../Specs/GIL-001-product-ingredients/spec.md)) — not `GenericAttribute` or `SpecificationAttribute` | Ingredients are recursive (an ingredient can itself be composed of ingredients, e.g. beef broth in onion soup) and carry their own queryable fields (allergen classification). `SpecificationAttribute` has exactly one grouping level with no attribute-to-attribute relation — the composition is inexpressible in it. `GenericAttribute` can't answer "which products contain celery", the actual point for allergens. Both rejected, verified against `src/` in GIL-001 |
 | Packaging fragility / temperature control requirement | `Product` (flag) + carrier logic | **`GenericAttribute`** flag on `Product`; consumed inside a custom `IShippingRateComputationMethod.GetShippingOptionsAsync`/`GetFixedRateAsync` to apply a surcharge or restrict certain shipping methods | This is shipping business logic, not a data-modeling problem — belongs in a shipping plugin, not a core change |
 | Confectionery expansion (future category) | New `Category`/`ProductAttribute` combinations | No engine change needed | nopCommerce's category/manufacturer/attribute system already supports multiple product lines under one catalog — confectionery is new *catalog data*, not a new entity type |
-
-### ⚠️ Contested: the ingredient-list row
-
-The guidance above assumes an ingredient list is flat text or a set of filterable spec values. GIL-001
-found that requirement to be **recursive** — an ingredient can itself be composed of ingredients (beef
-broth in onion soup), and `SpecificationAttribute` has exactly one grouping level with no
-attribute-to-attribute relation, so the composition is inexpressible in it. `GenericAttribute` cannot
-answer "which products contain celery", which is the point for allergens.
-
-This row is therefore **suspected wrong for the real requirement**, but it has not been corrected yet:
-the decision is open as Q9 in
-[`../Specs/GIL-001-product-ingredients/spec.md`](../Specs/GIL-001-product-ingredients/spec.md). Do not
-follow this row for an ingredient-composition feature without checking that spec first. When Q9 is
-answered, either this row is rewritten or GIL-001's rejection is withdrawn — one of the two must happen
-in the same commit as the implementation, so the harness stops prescribing a mechanism the project
-rejected.
 
 ## Recommended plugin(s) for this domain
 
@@ -43,7 +27,11 @@ purpose-built plugins so they version, install, and (eventually) uninstall as a 
   structured data, "expiring soon" admin report, and the scheduled task that flags near-expiry stock
   (`IScheduleTask`, see [knowledge-base/07](../knowledge-base/07-events-and-scheduled-tasks.md); recall
   from [04-deployment-aws-ecs.md](04-deployment-aws-ecs.md) that this task must be idempotent/safe to
-  run redundantly once ECS scales past one task).
+  run redundantly once ECS scales past one task). Check for overlap with `Nop.Plugin.Misc.Ingredients`'s
+  per-ingredient allergen classification (GIL-001) before duplicating allergen data here.
+- **`Nop.Plugin.Misc.Ingredients`** — ingredient catalogue with recursive composition (an ingredient may
+  itself be composed of ingredients) and per-ingredient allergen classification, attached to products and
+  rendered on the product detail page. See [GIL-001](../Specs/GIL-001-product-ingredients/spec.md).
 - **`Nop.Plugin.Shipping.TemperatureControlled`** (or extend an existing carrier plugin) — implements
   `IShippingRateComputationMethod` to apply packaging/fragility/cold-chain surcharges and restrict
   incompatible shipping methods for jarred/canned goods.
@@ -54,8 +42,8 @@ Before adding any new column or entity, check whether the need is already covere
 
 - `ProductTag` — simple facetable labels (dietary tags, "premium", "small-batch").
 - `SpecificationAttribute`/`SpecificationAttributeOption` — structured, filterable product
-  specifications (ingredients, weight class, jar size) that should appear in storefront comparison/
-  filter UI.
+  specifications (weight class, jar size, spice level) that should appear in storefront comparison/
+  filter UI. **Not** for ingredient lists — see the ingredient-list row above.
 - `ProductAttribute`/`ProductAttributeCombination` — customer-selectable variants (jar size, spice
   level) that affect price/stock, as opposed to fixed product metadata.
 - `Manufacturer` — if "premium gastronomy" vs. future "confectionery" line should be modeled as

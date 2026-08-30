@@ -53,6 +53,13 @@ while drafting:
 - **Extension mechanism.** For new data on a core entity: existing mechanism (`ProductTag`,
   `SpecificationAttribute`, `ProductAttribute`), `GenericAttribute`, or schema migration — with the
   reason. See `entity-extension-check`.
+- **Integration points** (admin menu entries, widget zones, and similar plugin-wiring mechanisms cited in
+  a spec's Placement/Extension point sections): verify against
+  [`Docs/knowledge-base/06-plugin-types-reference.md`](../../../Docs/knowledge-base/06-plugin-types-reference.md)
+  rather than only a source grep. A grep for a type name can surface an obsolete API alongside its
+  replacement with no signal which one is current — GIL-001 round 1 cited `IAdminMenuPlugin` next to
+  `BaseAdminMenuCreatedEventConsumer` as if interchangeable, when the former is `[Obsolete]` and the
+  knowledge-base file already said so.
 - **Existing installations.** What happens to a store that already runs the previous version: new
   settings, new locale keys, new permissions, migrations on populated tables.
 - **Localization.** Which user-facing strings appear, and that they are resources.
