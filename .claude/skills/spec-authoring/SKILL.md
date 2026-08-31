@@ -63,6 +63,10 @@ while drafting:
 - **Existing installations.** What happens to a store that already runs the previous version: new
   settings, new locale keys, new permissions, migrations on populated tables.
 - **Localization.** Which user-facing strings appear, and that they are resources.
+- **Picture/image fields.** Three separate lifecycle points, not one: the previous `Picture` row on
+  edit/replace (precedent: `CategoryController`'s `prevPictureId` cleanup), on owning-entity delete, and
+  on plugin uninstall. GIL-002 round 1 covered delete/uninstall but missed edit/replace — the common
+  case once an image field is required — and needed a second `spec-intake` round to catch it.
 - **Permissions.** Who may do this, and which permission record expresses it.
 - **The regression case,** for a bug fix — the behaviour a test must fail on before the fix.
 - **Cross-cutting aspects** from
