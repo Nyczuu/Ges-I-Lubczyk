@@ -210,8 +210,29 @@ public partial class BaseNopTest
         var typeFinder = new WebAppTypeFinder();
         Singleton<ITypeFinder>.Instance = typeFinder;
 
+        //NOTE: production's Nop.Data.NopDbStartup.ConfigureServices scans FindClassesOfType<MigrationBase>
+        //(not the narrower ForwardOnlyMigration) because in the real app every installed plugin's assembly is
+        //on the probe path and is meant to be exercised. This test harness's own WebAppTypeFinder only probes
+        //this test project's own bin folder (DirectoriesToLoadAssemblies defaults to AppContext.BaseDirectory),
+        //which - unlike the production probe - also happens to contain Nop.Web.Framework.dll itself. That
+        //assembly has zero ForwardOnlyMigration-derived classes but plenty of Migration/MigrationBase-derived
+        //ones (SettingMigration, LocalizationMigration, AclMigration, MenuMigration, ... for every upgrade from
+        //4.40 to 5.00), so widening this scan to MigrationBase previously put Nop.Web.Framework's assembly onto
+        //FluentMigrator's ScanIn list for the first time. Once discoverable there, AppStartedConsumer's
+        //post-install call to ApplyUpMigrations(Assembly.GetAssembly(typeof(ApplicationBuilderExtensions)),
+        //MigrationProcessType.Update) actually found and ran every one of those real upgrade-path migrations
+        //against the freshly-installed SQLite test database - migrations written and gated for a genuine
+        //pre-5.00 store being upgraded, never for a brand-new install - which broke tax/price defaults other
+        //tests depend on (TaxServiceTests.CanGetProductPrice, ProductAttributeParserTests.CanRenderAttributesWithoutPrices).
+        //Keep the narrow ForwardOnlyMigration-based scan for everything else, and union in only the one
+        //additional assembly this plugin's own schema migration actually needs: it derives from Migration
+        //(not ForwardOnlyMigration) because it needs a real Down(), so it would otherwise never be discovered.
+        //This is a named, single-plugin literal, not a general mechanism: the next test-covered plugin with
+        //its own real Down()-needing migration will hit the identical silent no-op unless this line is
+        //extended to union in its assembly too.
         var mAssemblies = typeFinder.FindClassesOfType<ForwardOnlyMigration>()
             .Select(t => t.Assembly)
+            .Union([typeof(global::Nop.Plugin.Misc.Ingredients.Data.Migrations.SchemaMigration).Assembly])
             .Distinct()
             .ToArray();
 
@@ -295,6 +316,13 @@ public partial class BaseNopTest
         services.AddSingleton(new DistributedCacheLocker(memoryDistributedCache));
 
         //services
+        //NOTE: this test harness hand-registers every service the test suite needs rather than
+        //auto-discovering INopStartup implementations the way the real app does, so a plugin's own
+        //INopStartup (Nop.Plugin.Misc.Ingredients.Infrastructure.NopStartup) is never invoked here -
+        //its registrations have to be mirrored explicitly, same as every other service below
+        services.AddScoped<global::Nop.Plugin.Misc.Ingredients.Services.IIngredientService, global::Nop.Plugin.Misc.Ingredients.Services.IngredientService>();
+        services.AddScoped<global::Nop.Plugin.Misc.Ingredients.Services.IIngredientCompositionService, global::Nop.Plugin.Misc.Ingredients.Services.IngredientCompositionService>();
+        services.AddScoped<global::Nop.Plugin.Misc.Ingredients.Services.IProductIngredientService, global::Nop.Plugin.Misc.Ingredients.Services.ProductIngredientService>();
         services.AddTransient<IBackInStockSubscriptionService, BackInStockSubscriptionService>();
         services.AddTransient<ICategoryService, CategoryService>();
         services.AddTransient<IFilterLevelValueService, FilterLevelValueService>();
