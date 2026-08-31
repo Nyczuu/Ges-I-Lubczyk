@@ -2,7 +2,7 @@
 id: GIL-002
 kind: Task
 title: Serving suggestion on products (title, description, image, steps)
-status: Ready
+status: In Progress
 ---
 
 # Task — Serving suggestion on products (title, description, image, steps)
@@ -211,3 +211,201 @@ No image, `appsettings`, or ECS change expected. No Redis prerequisite (§9). Ex
 unaffected until a serving suggestion is added to them, so rollout is immediate. Because the image is
 required, any product an admin starts a serving suggestion for needs a real photo (or an interim
 placeholder) before that suggestion can be saved — a content task, not a migration/deployment concern.
+
+## Technical design (ddd-modeler)
+
+> This design was produced in two passes. The first pass ran before GIL-001 (`Nop.Plugin.Misc.Ingredients`)
+> was merged into `develop`, so several claims about "no plugin precedent exists yet" were provisional. After
+> GIL-001 was merged locally into `develop` mid-review, `ddd-modeler` was re-invoked to reconcile the design
+> against the real, now-merged GIL-001 code. Both passes are kept below — the second corrects specific claims
+> in the first; the first pass's uncorrected sections still stand.
+
+### Pass 1 — initial design
+
+## Corrections to the spec's technical assumptions
+
+- **§10's "cascade-delete" wording is ambiguous and, read as DB-level FK cascade, would not work.** `Product` implements `ISoftDeletedEntity` (`src/Libraries/Nop.Core/Domain/Catalog/Product.cs:13`), and `ProductController.Delete` (`src/Presentation/Nop.Web/Areas/Admin/Controllers/ProductController.cs:1465`) calls `ProductService.DeleteProductAsync` → `_productRepository.DeleteAsync(product)`, which for `ISoftDeletedEntity` sets `Deleted = true` and issues an `UPDATE`, never a `DELETE` (`src/Libraries/Nop.Data/EntityRepository.cs:439-441`). A `Product` row is **never actually removed**, so a DB `ON DELETE CASCADE` FK from `ServingSuggestion.ProductId → Product.Id` would never fire. The cleanup this spec wants must be an **application-level event consumer**, not schema cascade. **(Superseded by Pass 2, point 3 — see below: a single consumer suffices, not the dual-consumer pattern originally proposed here.)**
+
+- **§5 cites `Category.PictureId` as the shape precedent, but that's the wrong precedent for a *required* picture, and the accompanying claim "this codebase does not declare DB-level FK constraints on these int columns anyway" is false as a general statement.** `CategoryBuilder.cs` indeed leaves `PictureId` unmapped (no FK) — but that's specifically because `Category.PictureId` uses `0` as a "no picture" sentinel, and a real FK would reject `0`. `ProductPictureBuilder.cs:22` — a column that, like ours, is *always* required — **does** declare `.WithColumn(nameof(ProductPicture.PictureId)).AsInt32().ForeignKey<Picture>()`. Since `ServingSuggestion.PictureId` is required and never a sentinel, `ProductPicture.PictureId` is the correct precedent, not `Category.PictureId`.
+
+- **§5's "no explicit column-length override" framing for `Description`/`Step.Text`, taken literally, would make them nullable, contradicting "not nullable."** The FluentMigrator auto-map convention for any `string` property left out of a builder's `MapEntity` is `AsString(int.MaxValue).Nullable()` (`src/Libraries/Nop.Data/Extensions/FluentMigratorExtensions.cs:32`) — that's exactly why `Product.ShortDescription`/`FullDescription` (also unmapped) are nullable in the DB. To get unbounded **and** `NotNullable`, the builder must explicitly declare `.AsString(int.MaxValue).NotNullable()` — the pattern `Nop.Plugin.Misc.Polls`'s `PollBuilder`/`PollAnswerBuilder` already use for their unbounded, required `Name` columns.
+
+- **The claim that GIL-001 "already shipped" and could be mirrored was false at the time of Pass 1.** At that point `Docs/Specs/GIL-001-product-ingredients/spec.md` was status `Ready` with no implementation on disk. **Superseded by Pass 2, point 1 — GIL-001 has since been merged, and its `Ingredient` entity is the actual first `ILocalizedEntity` plugin instance; GIL-002 follows it, not the reverse.**
+
+## Resolution of §4's flagged open question
+
+**Confirmed: a plugin can register a genuine new `<nop-card>` section through `AdminWidgetZones.ProductDetailsBlock`.** Traced the full render chain:
+
+1. `_CreateOrUpdate.cshtml:114` calls `@await Component.InvokeAsync(typeof(AdminWidgetViewComponent), new { widgetZone = AdminWidgetZones.ProductDetailsBlock, additionalData = Model })` **directly inside** `<nop-cards id="product-cards">` (line 86), as a **sibling** of the built-in `<nop-card>` elements — not nested inside one.
+2. `AdminWidgetViewComponent.InvokeAsync` (`src/Presentation/Nop.Web/Areas/Admin/Components/AdminWidgetViewComponent.cs:38`) calls `IWidgetModelFactory.PrepareRenderWidgetModelAsync` and renders `Areas/Admin/Views/Shared/Components/AdminWidget/Default.cshtml`, which just loops active widgets: `@await Component.InvokeAsync(widget.WidgetViewComponent, widget.WidgetViewComponentArguments)`.
+3. `NopCardTagHelper` (`src/Presentation/Nop.Web.Framework/TagHelpers/Admin/NopCardTagHelper.cs:15`) is matched by **element name across any compiled Razor view**, not scoped to `_CreateOrUpdate.cshtml`. It fully replaces `<nop-card asp-name="..." ...>...</nop-card>` with a real `<div class="card card-secondary card-outline">` including header, icon, collapse toggle, and the `AdminWidgetZones.CardBefore/CardAfter` per-card sub-zones (lines 66-137) — indistinguishable from a built-in card.
+4. Every plugin admin view (confirmed via `Nop.Plugin.Misc.Polls/Admin/Views/_ViewImports.cshtml:3`) does `@addTagHelper *, Nop.Web.Framework`, which registers this same tag helper for the plugin's own views. So if our plugin's widget-zone view component's view emits `<nop-card asp-name="serving-suggestion" asp-title="..." asp-hide-block-attribute-name="..." asp-hide="..." asp-advanced="false">...</nop-card>`, it renders as a genuine, fully-functional, collapsible card in the product-edit page — same JS (`admin.common.js:260-268`, generic `data-card-widget="collapse"` + `data-hideAttribute` → `admin/preferences/savepreference`) drives it, with no special-casing.
+
+At Pass 1 time, no plugin in this repo demonstrated this end-to-end. **Superseded by Pass 2, point 2 — GIL-001's `ProductIngredients.cshtml` already does exactly this, live, in `develop`.**
+
+## Placement
+
+New plugin `Nop.Plugin.Misc.ServingSuggestions`, `SystemName` = `Misc.ServingSuggestions`. Implements `IMiscPlugin` (`src/Libraries/Nop.Services/Common/IMiscPlugin.cs:9`) + `IWidgetPlugin` (`src/Libraries/Nop.Services/Cms/IWidgetPlugin.cs:8`) on one `BasePlugin` subclass, mirroring `PollsPlugin`/`AvalaraTaxPlugin`. No core change. `GetWidgetZonesAsync()` returns both `AdminWidgetZones.ProductDetailsBlock` and `PublicWidgetZones.ProductDetailsBottom` (both admin and public zones legitimately coexist in one list — confirmed by `AvalaraTaxProvider.GetWidgetZonesAsync` mixing `AdminWidgetZones.*` and other zones together, and now also by `IngredientsPlugin.GetWidgetZonesAsync`). `GetWidgetViewComponent(widgetZone)` switches between an admin card view component and a storefront view component.
+
+## Domain model
+
+```csharp
+// src/Plugins/Nop.Plugin.Misc.ServingSuggestions/Domain/ServingSuggestion.cs
+public partial class ServingSuggestion : BaseEntity, ILocalizedEntity
+{
+    public int ProductId { get; set; }
+    public string Title { get; set; }          // localized
+    public string Description { get; set; }     // localized
+    public int PictureId { get; set; }           // required — no sentinel value
+}
+
+// src/Plugins/Nop.Plugin.Misc.ServingSuggestions/Domain/ServingSuggestionStep.cs
+public partial class ServingSuggestionStep : BaseEntity, ILocalizedEntity
+{
+    public int ServingSuggestionId { get; set; }
+    public string Text { get; set; }             // localized
+    public int DisplayOrder { get; set; }
+}
+```
+
+No navigation properties (rule 1). Invariant "exactly one `ServingSuggestion` per product" is **not** a DB unique constraint — confirmed no builder in `src/Libraries/Nop.Data/Mapping/Builders/**` calls `.Unique()` anywhere; the codebase's convention (also spec's own posture on FK/lock enforcement) is service-layer enforcement: `ServingSuggestionService` exposes get-or-create semantics keyed by `ProductId`, never a bare "insert new" the admin UI could call twice.
+
+**`NopEntityBuilder<T>` mapping** (see Pass 2, point 1 for the corrected `ForeignKey<T>()` wiring on both builders):
+
+```csharp
+// ServingSuggestionBuilder
+table
+    .WithColumn(nameof(ServingSuggestion.Title)).AsString(400).NotNullable()          // mirrors Product.Name, ProductBuilder.cs:20
+    .WithColumn(nameof(ServingSuggestion.Description)).AsString(int.MaxValue).NotNullable()
+    .WithColumn(nameof(ServingSuggestion.PictureId)).AsInt32().ForeignKey<Picture>()   // mirrors ProductPicture.PictureId, not Category.PictureId
+    .WithColumn(nameof(ServingSuggestion.ProductId)).AsInt32().ForeignKey<Product>();  // Rule.Cascade default; decorative only — see Pass 2 point 3
+
+// ServingSuggestionStepBuilder
+table
+    .WithColumn(nameof(ServingSuggestionStep.Text)).AsString(int.MaxValue).NotNullable()
+    .WithColumn(nameof(ServingSuggestionStep.ServingSuggestionId)).AsInt32().ForeignKey<ServingSuggestion>(); // real DB cascade — ServingSuggestion itself is hard-deleted
+```
+
+`Id` PK auto-added by `RetrieveTableExpressions` (`FluentMigratorExtensions.cs:248-271`). `.ForeignKey<T>()` auto-indexes the FK column (`FluentMigratorExtensions.cs:114`) and defaults `OnDelete(Rule.Cascade)`.
+
+**Important consequence of `ServingSuggestion.PictureId → Picture` cascade:** `Picture` is **not** `ISoftDeletedEntity` (`src/Libraries/Nop.Core/Domain/Media/Picture.cs:6`) — `IPictureService.DeletePictureAsync` does a genuine `DELETE` (`PictureService.cs:707`). If the service ever deletes the `Picture` *before* the `ServingSuggestion` row, the DB cascade would silently delete the `ServingSuggestion`/`ServingSuggestionStep` rows as a side effect, ahead of the explicit application code. The service must always delete `Picture` **last** (matching `CategoryController.cs:294-299`'s "delete old picture after everything else" ordering).
+
+## Extension decision
+
+Schema migration — new plugin-owned entities, not `GenericAttribute`. Reasoning matches spec §5 exactly and is verified: `GenericAttribute` cannot express an ordered child collection (`ServingSuggestionStep`) or a real `PictureId` FK. `ProductTag`/`SpecificationAttribute` rejected for the same reasons the spec gives — confirmed by reading `ProductTag.cs`/`SpecificationAttribute.cs` shapes, neither has ordered sub-content.
+
+## Design
+
+**Migration** (`Data/Migrations/SchemaMigration.cs`, mirroring `Nop.Plugin.Misc.Polls/Data/Migrations/SchemaMigration.cs`):
+
+```csharp
+[NopMigration("2026-08-31 00:00:00", "Misc.ServingSuggestions schema", MigrationProcessType.Installation)]
+public class SchemaMigration : Migration
+{
+    public override void Up()
+    {
+        this.CreateTableIfNotExists<ServingSuggestion>();
+        this.CreateTableIfNotExists<ServingSuggestionStep>();
+    }
+    public override void Down()
+    {
+        this.DeleteTableIfExists<ServingSuggestionStep>();
+        this.DeleteTableIfExists<ServingSuggestion>();
+    }
+}
+```
+
+Safe on a populated store: purely additive new tables, no existing schema touched. Safe under rolling deploy: no existing table altered.
+
+**Service** — `IServingSuggestionService` / `ServingSuggestionService` (own repositories `IRepository<ServingSuggestion>`, `IRepository<ServingSuggestionStep>`, `IRepository<LocalizedProperty>`, `IPictureService`, `INopDataProvider`):
+- `GetServingSuggestionByProductIdAsync(int productId)`
+- `GetServingSuggestionStepsAsync(int servingSuggestionId)`
+- `InsertServingSuggestionAsync` / `UpdateServingSuggestionAsync` — wraps entity insert/update + step writes + `LocalizedProperty` writes in `_dataProvider.CreateTransactionScope()` + `transaction.Complete()` (verified pattern: `src/Libraries/Nop.Services/Helpers/SyncCodeHelper.cs:103-105`, and `EntityRepository.cs:467-478`), satisfying §10's transactional requirement.
+- `DeleteServingSuggestionAsync(ServingSuggestion)` — single method used both by the admin "delete" action and the product-deletion event consumer: deletes `LocalizedProperty` rows for both `LocaleKeyGroup`s (queried via `IRepository<LocalizedProperty>.GetAllAsync(q => q.Where(lp => lp.EntityId == id && lp.LocaleKeyGroup == "ServingSuggestion"/"ServingSuggestionStep"))` — no bulk-delete-by-entity helper exists on `ILocalizedEntityService`, confirmed by reading its full interface; this direct-repository pattern matches how `ProductService.cs:924-1032` itself queries `LocalizedProperty` by `LocaleKeyGroup == nameof(Product)`), then the `ServingSuggestion` row (DB cascades `ServingSuggestionStep` rows automatically), then `IPictureService.DeletePictureAsync` **last**.
+- No optimistic concurrency token — matches spec's explicit last-write-wins decision and the codebase's general posture (no `RowVersion`/`ConcurrencyStamp` field anywhere in these builders).
+
+**Events consumed** — see Pass 2, point 3 for the corrected (single-consumer) design; the dual-consumer version originally proposed here is superseded.
+
+**Events published** — none beyond built-in `EntityInserted/Updated/DeletedEvent<ServingSuggestion>`/`<ServingSuggestionStep>` (fired automatically by `EntityRepository<T>` on every insert/update/delete — no custom event needed, matching spec §8).
+
+**Caching** — see Pass 2, point 5 for a required addition (`CacheEventConsumer<ServingSuggestion>`); the "no caching needed" conclusion for a bespoke derived/render cache still stands unchanged.
+
+**Permissions** — `IPermissionConfigManager` implementation (auto-discovered via `ITypeFinder.FindClassesOfType<IPermissionConfigManager>()` + `Activator.CreateInstance`, confirmed at `PermissionService.cs:403-409` — **no DI registration needed**, confirmed by both `Nop.Plugin.Misc.Polls`'s `PollPermissionConfigManager` and GIL-001's `IngredientsPermissionConfigManager` not appearing in their plugins' `NopStartup.cs`):
+
+```csharp
+public class ServingSuggestionsPermissionConfigManager : IPermissionConfigManager
+{
+    public IList<PermissionConfig> AllConfigs => new List<PermissionConfig>
+    {
+        new("Admin area. Serving suggestions. View", ServingSuggestionsDefaults.Permissions.VIEW,
+            nameof(StandardPermission.Catalog), NopCustomerDefaults.AdministratorsRoleName),
+        new("Admin area. Serving suggestions. Create, edit, delete", ServingSuggestionsDefaults.Permissions.CREATE_EDIT_DELETE,
+            nameof(StandardPermission.Catalog), NopCustomerDefaults.AdministratorsRoleName),
+    };
+}
+```
+
+`SystemName`s (`"ServingSuggestions.View"` / `"ServingSuggestions.CreateEditDelete"`) are plugin-owned constants in `ServingSuggestionsDefaults.Permissions`, **not** added into core `StandardPermission.cs` — the "Catalog View/CreateEditDelete convention" the spec asks for is the *naming shape*, borrowed via `Category = nameof(StandardPermission.Catalog)` purely for admin-UI grouping. Adding literal constants to `StandardPermission.cs` would be a core change requiring the rule-3 confirmation this design avoids.
+
+**Admin surface** — a genuine new `<nop-card>` rendered via `AdminWidgetZones.ProductDetailsBlock` (confirmed live in Pass 2, point 2), backed by its own admin controller `ServingSuggestionController` (own AJAX actions scoped by `productId`, `[CheckPermission(...)]`-guarded) — **not** fields folded into the main `ProductModel`/`product-form` POST, because `Edit.cshtml:12`'s `<form>` binds strictly to `ProductModel`, which has no room for plugin fields without a core change. This mirrors the established pattern of `ProductController.ProductPictureAdd/Update/Delete` (`ProductController.cs:2118,2199,2233`) and GIL-001's `ProductIngredientsAdminViewComponent`/`IngredientsAdminController`/`ProductIngredients.cshtml` (DataTables grid + inline edit + AJAX add, hide-block `GenericAttribute` for collapse-state) for the ordered steps sub-list, and `ProductController.ProductPictureAdd`'s `IPictureService.InsertPictureAsync(IFormFile)` for the single required picture. No separate admin menu entry (spec §4, confirmed no `AdminMenuCreatedEvent` consumer needed).
+
+**Storefront surface** — a `ServingSuggestionViewComponent` registered for `PublicWidgetZones.ProductDetailsBottom` (`"productdetails_bottom"`, confirmed `PublicWidgetZones.cs:166`), reading via `ServingSuggestionService.GetServingSuggestionByProductIdAsync` + `ILocalizationService.GetLocalizedAsync`. Renders nothing if no serving suggestion exists (no error, no empty markup — spec test scenario). Inherits product's own ACL/store-mapping/Published gating — no independent check needed since it only renders inside the already-gated product-details template.
+
+**Localization** — `Title`/`Description`/`ServingSuggestionStep.Text` via `ILocalizedEntityService.SaveLocalizedValueAsync<T,TPropType>`, `LocaleKeyGroup` = unqualified type name (`"ServingSuggestion"`/`"ServingSuggestionStep"`, confirmed convention at `LocalizationService.cs:506`; confirmed no name collision anywhere in `src/Libraries`). On plugin uninstall and on product deletion, `LocalizedProperty` rows are deleted explicitly (no automatic mechanism exists — see Service above; uninstall ordering corrected in Pass 2, point 6).
+
+## Simplicity check
+
+The smallest version that works is what's described: two plugin-owned tables (no soft-delete, no store-mapping, no ACL, no settings, no scheduled task, no optimistic lock), one service, one event consumer, one admin card, one storefront widget. This design matches that size. The one piece that looks larger than "an additive nullable property" is the two-entity schema + its own admin controller — that's the named, justified constraint from §5 (an ordered child collection and a required picture FK cannot live in `GenericAttribute`), not scope creep.
+
+## Blast radius
+
+- **`AdminWidgetZones.ProductDetailsBlock`** — at Pass 1 time, believed rendered only by `Nop.Plugin.Tax.Avalara`'s `EntityUseCodeViewComponent` (field injection). **Updated (Pass 2):** GIL-001's `IngredientsPlugin` also renders a genuine `<nop-card>` into this same zone — so this design's new card will be the *third* widget sharing the zone, alongside Avalara's field-injection and GIL-001's ingredients card. Additive — `Default.cshtml`'s `foreach` already supports multiple widgets rendering into the same zone; none interact.
+- **`PublicWidgetZones.ProductDetailsBottom`** — not currently claimed by any plugin in this repo (confirmed no other plugin returns it from `GetWidgetZonesAsync`, including now-merged GIL-001, which claims `productdetails_before_collateral` per spec §3) — no collision.
+- **`LocaleKeyGroup` string space** — `"ServingSuggestion"`/`"ServingSuggestionStep"` are new, unused strings; no collision with core or GIL-001's `"Ingredient"`.
+- **`EntityDeletedEvent<Product>`** — already consumed elsewhere in the repo by `Nop.Plugin.Misc.Zettle`'s `EventConsumer`. GIL-001 does **not** consume it (see Pass 2, point 3 — a real gap in GIL-001, out of scope for this task to fix). `IEventPublisher` invokes all registered consumers for a given event type independently and synchronously; our consumer doesn't touch product data itself. A throw in *any* consumer (including ours) will propagate up through `ProductService.DeleteProductAsync`'s synchronous call chain and abort the whole delete for the admin user, same as it already does for Zettle's consumer today.
+
+## Installed-store impact
+
+New tables only — no existing table altered, no existing settings/permissions changed. Rollout is immediate: existing products render nothing extra until an admin adds a serving suggestion (spec §13). New permissions (`ServingSuggestions.View`/`CreateEditDelete`) are synced automatically via `PermissionService`'s `IPermissionConfigManager` scan (no explicit call needed in `InstallAsync`, confirmed neither `PollsPlugin.InstallAsync` nor GIL-001's `IngredientsPlugin.InstallAsync` calls it either) and granted to Administrators only — no vendor/other-role impact. Rolling deploy: the migration only creates tables, so old and new app instances can run concurrently against the same DB without either breaking (old instances simply never query the new tables).
+
+### Pass 2 — reconciliation against merged GIL-001
+
+Between Pass 1 and developer approval, GIL-001 (`Nop.Plugin.Misc.Ingredients`) was merged locally into `develop`. `ddd-modeler` was re-invoked to re-verify Pass 1's claims against the real, now-available GIL-001 code rather than trust its own earlier inferences. The corrections below are authoritative over the equivalent Pass 1 sections; Pass 1 text not mentioned here still stands.
+
+**1. `ILocalizedEntity` precedent + builder conventions — correction (framing), column shape confirmed.**
+`Domain/Ingredient.cs:9` does declare `ILocalizedEntity`. Pass 1's claim "no plugin declares `ILocalizedEntity`, this design is first" is false — **GIL-001 is the first instance, GIL-002 follows it**, not the reverse.
+Column mapping corroborates the planned shape: `IngredientBuilder.cs:18` — `Name` → `.AsString(400).NotNullable()`, exactly mirroring `Product.Name`. `Ingredient.Description` is absent from `IngredientBuilder.MapEntity` entirely (unbounded, nullable by default) — direct corroboration that `Product`-style unmapped-string convention is real, not inferred. Note: the spec's own §5 wants `ServingSuggestion.Description` **not nullable**, diverging from both `Product` and `Ingredient`'s nullable-by-default columns — not a blocking issue, just declare it explicitly as `.AsString(int.MaxValue).NotNullable()`.
+`IngredientCompositionBuilder.cs` is empty because both its FK columns target the *same* table (`Ingredient`) and `ForeignKey<TPrimary>` has no constraint-name parameter to disambiguate two FKs to one table — **does not apply to GIL-002**, since `ServingSuggestion.ProductId → Product` and `ServingSuggestionStep.ServingSuggestionId → ServingSuggestion` target different tables. Both builders should declare real `ForeignKey<T>()` calls per `ProductIngredientMappingBuilder.cs:22-23`'s pattern — default `Rule.Cascade` is fine for both (no override needed, unlike `ProductIngredientMappingBuilder`'s deliberate `Rule.None` on `IngredientId`, which exists only because ingredient deletion is app-guarded — nothing analogous applies here).
+
+**2. Admin `<nop-card>` mechanism — confirmed live, caveat now obsolete.**
+Real, working, end-to-end precedent traced: `IngredientsPlugin.cs:71,89` routes `AdminWidgetZones.ProductDetailsBlock` to `ProductIngredientsAdminViewComponent`; the component (`:46-63`) casts `additionalData` to `BaseNopEntityModel` for the product id, gates on `_permissionService.AuthorizeAsync(...VIEW)` (silent `Content(string.Empty)` if denied), renders `ProductIngredients.cshtml`, which emits a genuine new `<nop-card asp-name="product-ingredients" asp-icon="..." asp-title="..." asp-hide-block-attribute-name="@hideIngredientsBlockAttributeName" asp-hide="@hideIngredientsBlock">` — not DOM injection. Collapse-state persistence is a per-admin `GenericAttribute` (`"ProductPage.HideIngredientsBlock"`), handled by the tag helper itself, no controller action needed. Controller shape (`IngredientsAdminController.cs:18-22`): `[Area(AreaNames.ADMIN)] [AutoValidateAntiforgeryToken] [ValidateIpAddress] [AuthorizeAdmin] [SaveSelectedTab]` at class level, `[CheckPermission(...VIEW)]` on reads, `[CheckPermission(...CREATE_EDIT_DELETE)]` on writes.
+**Design update:** mirror this exact shape for `ServingSuggestionAdminViewComponent`/`ServingSuggestionController` — no independent verification exercise or fallback plan needed.
+
+**3. Event consumer for Product deletion — correction: drop the dual-consumer design.**
+GIL-001 has **zero** product-deletion consumers (grepped the whole plugin tree for `IConsumer<EntityDeletedEvent<Product>>`/`IConsumer<EntityUpdatedEvent<Product>>`/`ISoftDeletedEntity` — no matches). `ProductIngredientMapping` rows are simply left orphaned on product soft-delete — a real, silent gap in GIL-001, out of scope to fix here, but instructive: `ProductIngredientMappingBuilder.cs:22` maps `ProductId` as `ForeignKey<Product>()` with default `Rule.Cascade`, but since `Product` is `ISoftDeletedEntity` and `EntityRepository.DeleteAsync` only ever issues an `UPDATE` for soft-deleted entities (never physical `DELETE`), that Cascade rule structurally never fires — it's decorative. Crucially, `EntityRepository.DeleteAsync` **does** always call `_eventPublisher.EntityDeletedAsync(entity)` even for soft-deleted entities (`EntityRepository.cs:450-451,481-486`) — so `EntityDeletedEvent<Product>` reliably fires on every real product deletion, and a second consumer watching `EntityUpdatedEvent<Product>` for `.Deleted` flipping true (the pattern originally borrowed from `Zettle`) is solving a case with no code path in this repo.
+**Corrected design:** a single consumer is sufficient and correct:
+```csharp
+public class ServingSuggestionProductDeletedEventConsumer : IConsumer<EntityDeletedEvent<Product>>
+{
+    public async Task HandleEventAsync(EntityDeletedEvent<Product> eventMessage)
+    {
+        // transactional: delete ServingSuggestionStep rows, the ServingSuggestion row,
+        // its LocalizedProperty rows, and its Picture via IPictureService
+    }
+}
+```
+Drop the `EntityUpdatedEvent<Product>` consumer entirely. State explicitly that `ForeignKey<Product>()` Cascade on `ServingSuggestion.ProductId` is defense-in-depth decoration only, not the actual cleanup mechanism — the consumer is load-bearing because the DB-level cascade will not fire on the normal soft-delete path.
+
+**4. `IngredientsPermissionConfigManager` shape — confirmed, no change.**
+`Services/IngredientsPermissionConfigManager.cs:9-21` matches Pass 1's proposal exactly: plugin-owned `const string` names, `Category = nameof(StandardPermission.Catalog)`, Administrators-only, auto-discovered (not registered in `NopStartup.cs`). `ServingSuggestionsPermissionConfigManager` follows this shape verbatim, no change.
+
+**5. Caching — "no caching needed" confirmed, one required addition surfaces.**
+`IngredientCacheEventConsumer.cs:9` is `CacheEventConsumer<Ingredient>` — the framework's generic by-id/by-ids/all-prefix cache invalidator, required boilerplate that pairs with any cached `GetByIdAsync(id, cache => default)` call (`IngredientService.cs:73` uses this pattern, and `EntityRepository.GetByIdAsync` treats any non-null `getCacheKey` delegate, even one returning `default`, as "use the static cache manager"). This confirms the rejection of a bespoke closure-style cache (`ServingSuggestion` is flat, no traversal — unchanged) but surfaces a small necessary addition: **if** the service uses the same cached `GetByIdAsync` pattern (likely, to mirror `IngredientService`), then bare `CacheEventConsumer<ServingSuggestion>` (and possibly `<ServingSuggestionStep>`) is mandatory standard-invalidation boilerplate, not optional future polish — orthogonal to and not contradicting "no derived render cache needed."
+
+**6. Uninstall cleanup ordering — confirmed pattern, one gap has no GIL-001 precedent (Picture).**
+`IngredientsPlugin.UninstallAsync` (`:163-195`) removes the widget system name, deletes permission records by system name, deletes locale resources by prefix, and purges `LocalizedProperty` rows via `_localizedPropertyRepository.DeleteAsync(property => property.LocaleKeyGroup == nameof(Ingredient))` — the one step its own code comment calls out as necessary because nothing automatic covers it. It does **not** manually delete its own entity rows (`Ingredient`/`IngredientComposition`/etc.), because `PluginService.UninstallPluginsAsync` (`PluginService.cs:577,581`) calls `UninstallAsync()` **then** runs `SchemaMigration.Down()`, which drops the plugin's own tables automatically — only shared core tables need explicit purging. This confirms the general shape of the design's uninstall cleanup — no change there.
+The one piece with **no GIL-001 precedent** (Ingredient has no `Picture` field): spec §11 requires "Uninstalling the plugin removes ... `Picture` rows for every product." `Picture` is a shared core table, untouched by `SchemaMigration.Down()`. Since `Down()` runs *after* `UninstallAsync()` and will drop the `ServingSuggestion` table (taking every `PictureId` value with it), the design must enumerate all `ServingSuggestion` rows and call `IPictureService.DeletePictureAsync(pictureId)` for each **inside `UninstallAsync()` itself**, before it returns control to `PluginService` for the `Down()` migration — this cannot be deferred, since the source table and its `PictureId` column will no longer exist by then.
+
+**Approved by:** Mateusz Nycz
+**Date:** 2026-08-31
+**Revision notes:** Two ddd-modeler passes. Pass 1 approved conditionally pending reconciliation against GIL-001, which was merged into `develop` mid-review (developer request: merge GIL-001 implementation branch locally before continuing GIL-002). Pass 2 re-verified Pass 1's claims against the real GIL-001 code and corrected: the ILocalizedEntity-precedent framing (GIL-001 is first, not GIL-002), confirmed the admin `<nop-card>` mechanism as live (no longer unverified), dropped the dual-event-consumer design in favor of a single `EntityDeletedEvent<Product>` consumer, added required `CacheEventConsumer<ServingSuggestion>` boilerplate, and added an explicit Picture-cleanup ordering requirement in `UninstallAsync`. Final design (Pass 1 + Pass 2 corrections) approved as a whole.
