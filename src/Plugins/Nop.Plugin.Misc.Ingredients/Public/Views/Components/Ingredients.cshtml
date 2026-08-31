@@ -1,0 +1,24 @@
+@model IngredientsModel
+
+@{
+    //renders fully expanded inline, EU-label style, e.g. "beef broth (bones, water, carrot, celery, salt)"
+    string RenderNode(PublicIngredientModel node)
+    {
+        if (!node.Children.Any())
+            return node.Name;
+
+        return $"{node.Name} ({string.Join(", ", node.Children.Select(RenderNode))})";
+    }
+}
+
+@if (Model.Ingredients.Any())
+{
+    <div class="product-ingredients">
+        <div class="title">
+            <strong>@T("Plugins.Misc.Ingredients.Ingredients"):</strong>
+        </div>
+        <div class="value">
+            @string.Join(", ", Model.Ingredients.Select(RenderNode))
+        </div>
+    </div>
+}

@@ -1,0 +1,35 @@
+@model IngredientModel
+
+@{
+    ViewBag.PageTitle = T("Plugins.Misc.Ingredients.Ingredients.EditIngredientDetails").Text;
+    NopHtml.SetActiveMenuItemSystemName(IngredientsDefaults.IngredientsMenuSystemName);
+}
+
+<form asp-controller="IngredientsAdmin" asp-action="Edit" method="post">
+    <div class="content-header clearfix">
+        <h1 class="float-left">
+            @T("Plugins.Misc.Ingredients.Ingredients.EditIngredientDetails") - @Model.Name
+            <small>
+                <i class="fas fa-arrow-circle-left"></i>
+                <a asp-action="List">@T("Plugins.Misc.Ingredients.Ingredients.BackToList")</a>
+            </small>
+        </h1>
+        <div class="float-right">
+            <button type="submit" name="save" class="btn btn-primary">
+                <i class="far fa-floppy-disk"></i>
+                @T("Admin.Common.Save")
+            </button>
+            <button type="submit" name="save-continue" class="btn btn-primary">
+                <i class="far fa-floppy-disk"></i>
+                @T("Admin.Common.SaveContinue")
+            </button>
+            <span id="ingredient-delete" class="btn btn-danger">
+                <i class="far fa-trash-can"></i>
+                @T("Admin.Common.Delete")
+            </span>
+        </div>
+    </div>
+    <input asp-for="Id" type="hidden" />
+    @await Html.PartialAsync("_CreateOrUpdate", Model)
+</form>
+<nop-delete-confirmation asp-model-id="@Model.Id" asp-button-id="ingredient-delete" asp-action="Delete" />

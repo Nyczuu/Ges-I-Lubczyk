@@ -1,0 +1,59 @@
+@model IngredientModel
+
+<div class="card-body">
+    <div class="card card-default">
+        <div class="card-body">
+            @await Html.PartialAsync("Table", new DataTablesModel
+            {
+                Name = "ingredient-composition-grid",
+                UrlRead = new DataUrl("IngredientCompositionList", "IngredientsAdmin", new RouteValueDictionary { [nameof(Model.IngredientCompositionSearchModel.IngredientId)] = Model.IngredientCompositionSearchModel.IngredientId }),
+                UrlDelete = new DataUrl("IngredientCompositionDelete", "IngredientsAdmin", null),
+                UrlUpdate = new DataUrl("IngredientCompositionUpdate", "IngredientsAdmin", null),
+                Length = Model.IngredientCompositionSearchModel.PageSize,
+                LengthMenu = Model.IngredientCompositionSearchModel.AvailablePageSizes,
+                ColumnCollection = new List<ColumnProperty>
+                {
+                    new ColumnProperty(nameof(IngredientCompositionModel.ChildIngredientName))
+                    {
+                        Title = T("Plugins.Misc.Ingredients.Fields.Ingredient").Text
+                    },
+                    new ColumnProperty(nameof(IngredientCompositionModel.DisplayOrder))
+                    {
+                        Title = T("Plugins.Misc.Ingredients.Fields.DisplayOrder").Text,
+                        ClassName = NopColumnClassDefaults.CenterAll,
+                        Editable = true,
+                        EditType = EditType.Number
+                    },
+                    new ColumnProperty(nameof(IngredientCompositionModel.Id))
+                    {
+                        Title = T("Admin.Common.Edit").Text,
+                        Width = "100",
+                        ClassName = NopColumnClassDefaults.Button,
+                        Render = new RenderButtonsInlineEdit()
+                    },
+                    new ColumnProperty(nameof(IngredientCompositionModel.Id))
+                    {
+                        Title = T("Admin.Common.Delete").Text,
+                        Width = "100",
+                        Render = new RenderButtonRemove(T("Admin.Common.Delete").Text),
+                        ClassName = NopColumnClassDefaults.Button
+                    }
+                }
+            })
+        </div>
+        <div class="card-footer">
+            <button type="submit" id="btnAddNewIngredientComposition" class="btn btn-primary" onclick="javascript:OpenWindow('@(Url.Action("IngredientCompositionAddPopup", "IngredientsAdmin", new {parentIngredientId = Model.Id, btnId = "btnRefreshIngredientComposition", formId = "ingredient-form"}))', 800, 800, true); return false;">
+                @T("Plugins.Misc.Ingredients.Composition.AddNew")
+            </button>
+            <button type="submit" id="btnRefreshIngredientComposition" style="display: none"></button>
+            <script>
+                $(function() {
+                    $('#btnRefreshIngredientComposition').click(function () {
+                        updateTable('#ingredient-composition-grid');
+                        return false;
+                    });
+                });
+            </script>
+        </div>
+    </div>
+</div>

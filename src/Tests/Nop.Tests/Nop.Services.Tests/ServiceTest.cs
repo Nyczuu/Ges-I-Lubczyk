@@ -7,6 +7,8 @@ using Nop.Core.Domain.Shipping;
 using Nop.Core.Domain.Tax;
 using Nop.Core.Infrastructure;
 using Nop.Data.Configuration;
+using Nop.Data.Migrations;
+using Nop.Plugin.Misc.Ingredients;
 using Nop.Services.Configuration;
 using Nop.Services.Plugins;
 using Nop.Tests.Nop.Services.Tests.Directory;
@@ -87,6 +89,14 @@ public abstract class ServiceTest : BaseNopTest
                     FriendlyName = "Test pickup point provider",
                     Installed = true,
                     ReferencedAssembly = typeof(PickupPointTestProvider).Assembly
+                }, true),
+                (new PluginDescriptor
+                {
+                    PluginType = typeof(IngredientsPlugin),
+                    SystemName = IngredientsDefaults.SystemName,
+                    FriendlyName = "Ingredients",
+                    Installed = true,
+                    ReferencedAssembly = typeof(IngredientsPlugin).Assembly
                 }, true)
             }
         };
@@ -100,6 +110,12 @@ public abstract class ServiceTest : BaseNopTest
         var shippingSettings = GetService<ShippingSettings>();
         shippingSettings.ActivePickupPointProviderSystemNames.Add("PickupPoint.TestProvider");
         settingsService.SaveSettingAsync(shippingSettings, settings => settings.ActivePickupPointProviderSystemNames).Wait();
+
+        //marking the descriptor above "Installed" only makes IPluginManager resolve it - it does not run
+        //the plugin's own schema migration, so its tables have to be created explicitly (idempotent,
+        //safe to call once per test-fixture instantiation)
+        var migrationManager = GetService<IMigrationManager>();
+        migrationManager.ApplyUpMigrations(typeof(IngredientsPlugin).Assembly, MigrationProcessType.Installation);
     }
 }
 
