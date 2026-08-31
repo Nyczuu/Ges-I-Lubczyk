@@ -409,3 +409,263 @@ The one piece with **no GIL-001 precedent** (Ingredient has no `Picture` field):
 **Approved by:** Mateusz Nycz
 **Date:** 2026-08-31
 **Revision notes:** Two ddd-modeler passes. Pass 1 approved conditionally pending reconciliation against GIL-001, which was merged into `develop` mid-review (developer request: merge GIL-001 implementation branch locally before continuing GIL-002). Pass 2 re-verified Pass 1's claims against the real GIL-001 code and corrected: the ILocalizedEntity-precedent framing (GIL-001 is first, not GIL-002), confirmed the admin `<nop-card>` mechanism as live (no longer unverified), dropped the dual-event-consumer design in favor of a single `EntityDeletedEvent<Product>` consumer, added required `CacheEventConsumer<ServingSuggestion>` boilerplate, and added an explicit Picture-cleanup ordering requirement in `UninstallAsync`. Final design (Pass 1 + Pass 2 corrections) approved as a whole.
+
+## Implementation plan (implementation-planner)
+
+File-by-file plan for a new plugin `Nop.Plugin.Misc.ServingSuggestions`, mirroring `src/Plugins/Nop.Plugin.Misc.Ingredients` (GIL-001) as the closest analogous sibling plugin wherever a precedent exists there, and other in-repo precedents (`ProductController.ProductPictureAdd/Update/Delete`, `CategoryController.cs:294-299`, `SpecificationAttributeController.OptionCreatePopup/OptionEditPopup`) where it does not.
+
+### Root
+
+**`ServingSuggestionsPlugin.cs`** — new, mirrors `IngredientsPlugin.cs`
+```csharp
+public class ServingSuggestionsPlugin : BasePlugin, IMiscPlugin, IWidgetPlugin
+{
+    protected readonly ILocalizationService _localizationService;
+    protected readonly IPermissionService _permissionService;
+    protected readonly IPictureService _pictureService;
+    protected readonly IRepository<LocalizedProperty> _localizedPropertyRepository;
+    protected readonly IRepository<ServingSuggestion> _servingSuggestionRepository;
+    protected readonly ISettingService _settingService;
+    protected readonly WidgetSettings _widgetSettings;
+
+    public Type GetWidgetViewComponent(string widgetZone); // ProductDetailsBlock -> ServingSuggestionAdminViewComponent, else ServingSuggestionViewComponent
+    public Task<IList<string>> GetWidgetZonesAsync(); // { PublicWidgetZones.ProductDetailsBottom, AdminWidgetZones.ProductDetailsBlock }
+    public override async Task InstallAsync();
+    public override async Task UninstallAsync();
+    public bool HideInWidgetList => true;
+}
+```
+No `GetConfigurationPageUrl()` override — no admin menu entry, no catalog list page (spec §4). Deliberate deviation from Ingredients — drop `RouteProvider.cs` entirely.
+
+`UninstallAsync` ordering (load-bearing — `Down()` drops the table after this runs, taking `PictureId` with it):
+1. Enumerate all `ServingSuggestion` rows, `IPictureService.DeletePictureAsync` each — must happen here.
+2. Widget system-name removal.
+3. Permission record removal.
+4. `DeleteLocaleResourcesAsync("Plugins.Misc.ServingSuggestions")`.
+5. Delete `LocalizedProperty` rows for both `LocaleKeyGroup`s.
+6. `base.UninstallAsync()`.
+
+**`ServingSuggestionsDefaults.cs`** — new
+```csharp
+public class ServingSuggestionsDefaults
+{
+    public static string SystemName => "Misc.ServingSuggestions";
+}
+```
+
+**`Nop.Plugin.Misc.ServingSuggestions.csproj`** — new, mirrors Ingredients' shape. No `Npgsql` reference (that was for Ingredients' concurrent-write serialization detection, doesn't apply here — no optimistic concurrency).
+
+**`plugin.json`** — new
+```json
+{
+  "Group": "Misc",
+  "FriendlyName": "Serving suggestions",
+  "SystemName": "Misc.ServingSuggestions",
+  "Version": "5.00.1",
+  "SupportedVersions": [ "5.00" ],
+  "Author": "Ges I Lubczyk",
+  "DisplayOrder": 1,
+  "FileName": "Nop.Plugin.Misc.ServingSuggestions.dll",
+  "Description": "Serving suggestion (title, description, image, ordered steps) on products."
+}
+```
+
+**`logo.png`** — new, any valid PNG.
+
+### Domain
+
+**`Domain/ServingSuggestion.cs`**
+```csharp
+public partial class ServingSuggestion : BaseEntity, ILocalizedEntity
+{
+    public int ProductId { get; set; }
+    public string Title { get; set; }
+    public string Description { get; set; }
+    public int PictureId { get; set; }
+}
+```
+
+**`Domain/ServingSuggestionStep.cs`**
+```csharp
+public partial class ServingSuggestionStep : BaseEntity, ILocalizedEntity
+{
+    public int ServingSuggestionId { get; set; }
+    public string Text { get; set; }
+    public int DisplayOrder { get; set; }
+}
+```
+
+### Data
+
+**`Data/Mapping/Builders/ServingSuggestionBuilder.cs`**
+```csharp
+public class ServingSuggestionBuilder : NopEntityBuilder<ServingSuggestion>
+{
+    public override void MapEntity(CreateTableExpressionBuilder table)
+    {
+        table
+            .WithColumn(nameof(ServingSuggestion.Title)).AsString(400).NotNullable()
+            .WithColumn(nameof(ServingSuggestion.Description)).AsString(int.MaxValue).NotNullable()
+            .WithColumn(nameof(ServingSuggestion.PictureId)).AsInt32().ForeignKey<Picture>()
+            .WithColumn(nameof(ServingSuggestion.ProductId)).AsInt32().ForeignKey<Product>();
+    }
+}
+```
+
+**`Data/Mapping/Builders/ServingSuggestionStepBuilder.cs`**
+```csharp
+public class ServingSuggestionStepBuilder : NopEntityBuilder<ServingSuggestionStep>
+{
+    public override void MapEntity(CreateTableExpressionBuilder table)
+    {
+        table
+            .WithColumn(nameof(ServingSuggestionStep.Text)).AsString(int.MaxValue).NotNullable()
+            .WithColumn(nameof(ServingSuggestionStep.ServingSuggestionId)).AsInt32().ForeignKey<ServingSuggestion>();
+    }
+}
+```
+Both `ForeignKey<T>()` left at default `Rule.Cascade`.
+
+**`Data/Migrations/SchemaMigration.cs`**
+```csharp
+[NopMigration("2026-08-31 00:00:00", "Misc.ServingSuggestions schema", MigrationProcessType.Installation)]
+public class SchemaMigration : Migration
+{
+    public override void Up()
+    {
+        this.CreateTableIfNotExists<ServingSuggestion>();
+        this.CreateTableIfNotExists<ServingSuggestionStep>();
+    }
+    public override void Down()
+    {
+        this.DeleteTableIfExists<ServingSuggestionStep>();
+        this.DeleteTableIfExists<ServingSuggestion>();
+    }
+}
+```
+
+### Services
+
+**`Services/IServingSuggestionService.cs`** — resolved gap: per-row step CRUD (developer-confirmed, see Gate 2 resolution below)
+```csharp
+public record ServingSuggestionLocalizedValue(int LanguageId, string Title, string Description);
+public record ServingSuggestionStepLocalizedValue(int LanguageId, string Text);
+
+public interface IServingSuggestionService
+{
+    Task<ServingSuggestion> GetServingSuggestionByIdAsync(int servingSuggestionId);
+    Task<ServingSuggestion> GetServingSuggestionByProductIdAsync(int productId);
+    Task InsertServingSuggestionAsync(ServingSuggestion servingSuggestion, IList<ServingSuggestionLocalizedValue> localizedValues = null);
+    Task UpdateServingSuggestionAsync(ServingSuggestion servingSuggestion, IList<ServingSuggestionLocalizedValue> localizedValues = null);
+    Task DeleteServingSuggestionAsync(ServingSuggestion servingSuggestion);
+
+    Task<IList<ServingSuggestionStep>> GetServingSuggestionStepsAsync(int servingSuggestionId);
+    Task<ServingSuggestionStep> GetServingSuggestionStepByIdAsync(int servingSuggestionStepId);
+    Task InsertServingSuggestionStepAsync(ServingSuggestionStep step, IList<ServingSuggestionStepLocalizedValue> localizedValues = null);
+    Task UpdateServingSuggestionStepAsync(ServingSuggestionStep step, IList<ServingSuggestionStepLocalizedValue> localizedValues = null);
+    Task DeleteServingSuggestionStepAsync(ServingSuggestionStep step);
+}
+```
+
+**`Services/ServingSuggestionService.cs`** — mirrors `IngredientService.cs`+`ProductIngredientService.cs`. Fields: `ILocalizedEntityService`, `INopDataProvider`, `IRepository<ServingSuggestion>`, `IRepository<ServingSuggestionStep>`, `IRepository<LocalizedProperty>`, `IPictureService`.
+- Insert/Update (parent): transaction-wrapped entity write + `SaveLocalizedValueAsync` per locale for `Title`/`Description`.
+- Insert/Update (step): plain entity write + `SaveLocalizedValueAsync` for `Text`, no transaction wrapper (mirrors `ProductIngredientService`'s single-row writes).
+- Delete (parent), ordering load-bearing (Picture cascades from ServingSuggestion, so Picture must go last or it takes the row with it):
+  1. Delete `LocalizedProperty` rows, `LocaleKeyGroup == nameof(ServingSuggestion)`.
+  2. Delete `LocalizedProperty` rows, `LocaleKeyGroup == nameof(ServingSuggestionStep)`, for every step.
+  3. Delete `ServingSuggestion` row (cascades steps).
+  4. `DeletePictureAsync` — last.
+  All in one transaction.
+- Gets use `_repository.GetByIdAsync(id, cache => default)` — makes `CacheEventConsumer<T>` mandatory.
+
+**`Services/ServingSuggestionsPermissionConfigManager.cs`**
+```csharp
+public class ServingSuggestionsPermissionConfigManager : IPermissionConfigManager
+{
+    public const string SERVING_SUGGESTIONS_VIEW = "ServingSuggestions.View";
+    public const string SERVING_SUGGESTIONS_CREATE_EDIT_DELETE = "ServingSuggestions.CreateEditDelete";
+
+    public IList<PermissionConfig> AllConfigs => new List<PermissionConfig>
+    {
+        new("Admin area. Serving suggestions. View", SERVING_SUGGESTIONS_VIEW, nameof(StandardPermission.Catalog), NopCustomerDefaults.AdministratorsRoleName),
+        new("Admin area. Serving suggestions. Create, edit, delete", SERVING_SUGGESTIONS_CREATE_EDIT_DELETE, nameof(StandardPermission.Catalog), NopCustomerDefaults.AdministratorsRoleName)
+    };
+}
+```
+Not registered in `NopStartup.cs` — auto-discovered.
+
+**`Services/Caching/ServingSuggestionCacheEventConsumer.cs`**
+```csharp
+public class ServingSuggestionCacheEventConsumer : CacheEventConsumer<ServingSuggestion>;
+```
+**`Services/Caching/ServingSuggestionStepCacheEventConsumer.cs`**
+```csharp
+public class ServingSuggestionStepCacheEventConsumer : CacheEventConsumer<ServingSuggestionStep>;
+```
+
+**`Services/Events/ServingSuggestionProductDeletedEventConsumer.cs`** — no Ingredients precedent (real gap in GIL-001)
+```csharp
+public class ServingSuggestionProductDeletedEventConsumer : IConsumer<EntityDeletedEvent<Product>>
+{
+    protected readonly IServingSuggestionService _servingSuggestionService;
+
+    public ServingSuggestionProductDeletedEventConsumer(IServingSuggestionService servingSuggestionService)
+        => _servingSuggestionService = servingSuggestionService;
+
+    public async Task HandleEventAsync(EntityDeletedEvent<Product> eventMessage)
+    {
+        var servingSuggestion = await _servingSuggestionService.GetServingSuggestionByProductIdAsync(eventMessage.Entity.Id);
+        if (servingSuggestion != null)
+            await _servingSuggestionService.DeleteServingSuggestionAsync(servingSuggestion);
+    }
+}
+```
+
+### Admin
+
+- **`Admin/Components/ServingSuggestionAdminViewComponent.cs`** — guards `widgetZone == AdminWidgetZones.ProductDetailsBlock`, `AuthorizeAsync(...VIEW)` else empty content, renders card view.
+- **`Admin/Factories/ServingSuggestionAdminModelFactory.cs`** — `PrepareServingSuggestionModelAsync`, `PrepareServingSuggestionStepSearchModelAsync`, `PrepareServingSuggestionStepListModelAsync`, `PrepareServingSuggestionStepModelAsync`.
+- **`Admin/Controllers/ServingSuggestionController.cs`** — `[Area(ADMIN)] [AutoValidateAntiforgeryToken] [ValidateIpAddress] [AuthorizeAdmin] [SaveSelectedTab]`, actions: `ServingSuggestionEditPopup` (GET/POST, get-or-create + picture upload via `IFormCollection`, mirrors `ProductController.ProductPictureAdd`, delete-old-picture-last per `CategoryController.cs:294-299`), `ServingSuggestionDelete`, `ServingSuggestionStepList`, `ServingSuggestionStepCreatePopup` (GET/POST), `ServingSuggestionStepEditPopup` (GET/POST, full Locales editor per developer confirmation), `ServingSuggestionStepUpdate` (inline `DisplayOrder` edit), `ServingSuggestionStepDelete`.
+- **`Admin/Models/ServingSuggestionModel.cs`** (+`ServingSuggestionLocalizedModel`), **`ServingSuggestionStepModel.cs`** (+`ServingSuggestionStepLocalizedModel`, developer-confirmed full per-language editing), **`ServingSuggestionStepSearchModel.cs`**, **`ServingSuggestionStepListModel.cs`**.
+- **`Admin/Validators/ServingSuggestionValidator.cs`** — `Title` not empty, `PictureId > 0` (spec: image required).
+- **`Admin/Validators/ServingSuggestionStepValidator.cs`** — `Text` not empty.
+- Views: `Admin/Views/Components/ServingSuggestion.cshtml` (`<nop-card>` + steps DataTables grid, mirrors `ProductIngredients.cshtml`), `ServingSuggestionEditPopup.cshtml` (`_AdminPopupLayout`, `Html.LocalizedEditorAsync` for Title/Description, file input for picture), `ServingSuggestionStepCreatePopup.cshtml`/`StepEditPopup.cshtml` (mirrors `SpecificationAttribute/OptionCreatePopup.cshtml`/`OptionEditPopup.cshtml`), `_ViewImports.cshtml`, `_ViewStart.cshtml`.
+
+### Public (storefront)
+
+- **`Public/Components/ServingSuggestionViewComponent.cs`** — `PrepareServingSuggestionModelAsync` (null if none; else localized Title/Description, steps ordered by `DisplayOrder`, picture URL), `InvokeAsync` (empty content if null model).
+- **`Public/Models/PublicServingSuggestionModel.cs`** (+`PublicServingSuggestionStepModel`).
+- Views: `Public/Views/Components/ServingSuggestion.cshtml`, `_ViewImports.cshtml`, `_ViewStart.cshtml`.
+
+### Infrastructure
+
+- **`Infrastructure/NopStartup.cs`** — registers `IServingSuggestionService`/`ServingSuggestionAdminModelFactory`, `Order => 3000`.
+- **`Infrastructure/MapperConfiguration.cs`** — AutoMapper profiles, entity ↔ model, `Locales`/`PictureUrl`/`ServingSuggestionStepSearchModel` ignored on the entity→model map.
+- No `RouteProvider.cs`.
+
+### Wiring changes (not caught by the compiler)
+
+- **`src/NopCommerce.sln`** — add project entry, 6 build-config lines, nested-project line (mirrors GIL-001's).
+- **`src/Tests/Nop.Tests/Nop.Tests.csproj`** — add `ProjectReference`.
+- **`src/Tests/Nop.Tests/Nop.Services.Tests/ServiceTest.cs`** — register plugin descriptor + `ApplyUpMigrations` call.
+
+### Documentation
+
+- **`Docs/BusinessLogic/product-serving-suggestions.md`** — new, same commit as code.
+- **`Docs/Glossary/shop.md`** — add "Serving suggestion" entry (spec §12).
+
+### Order of work
+1. Domain entities → 2. Data builders + migration → 3. Service (incl. step CRUD) + permission manager → 4. Cache consumers → 5. Plugin/defaults/csproj/infrastructure → 6. `.sln`/test wiring → 7. Product-deleted event consumer → 8. Admin (models→validator→factory→controller→views) → 9. Public → 10. Docs.
+
+### Tests
+`ServingSuggestionServiceTests.cs` (transactional insert/update, localization fallback, delete cascade incl. Picture, picture-replace-deletes-old, validation: no image rejected / zero steps succeeds), `ServingSuggestionCacheEventConsumerTests.cs`, `ServingSuggestionViewComponentTests.cs` (renders with/without suggestion, step order), `ServingSuggestionProductDeletedEventConsumerTests.cs` (no Ingredients precedent), `ServingSuggestionsPluginTests.cs` (uninstall purges LocalizedProperty + Picture rows, no Ingredients precedent for the Picture half).
+
+### Gate 2 resolution — three open gaps, developer-confirmed via multiple-choice
+
+1. **Step CRUD shape:** per-row Insert/Update/Delete methods (not bundled into the parent's own insert/update) — matches every other "ordered child rows" admin UI in this codebase.
+2. **Picture upload mechanism:** bespoke `IFormCollection`-based upload mirroring `ProductController.ProductPictureAdd`, not the simpler `[UIHint("Picture")]` + shared `PictureController.AsyncUpload` route.
+3. **Per-language step editing:** full Locales editor for `ServingSuggestionStep.Text` in v1, consistent with the entity being `ILocalizedEntity`.
+
+**Approved by:** Mateusz Nycz
+**Date:** 2026-08-31
+**Revision notes:** none beyond the three Gate 2 gap resolutions above, all confirmed as the plan's own recommended option.
