@@ -30,4 +30,5 @@ Same applies to changes: if a change alters documented behaviour, the doc update
 
 ## Index
 
-_(empty — add a line per file as mechanisms are built)_
+- [`product-ingredients.md`](product-ingredients.md) — ingredient composition, depth limit, cycle
+  prevention, allergen classification, deletion rules, storefront rendering (GIL-001).

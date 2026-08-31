@@ -266,10 +266,16 @@ spec has put in play appear here** — the rest get added when a spec needs them
 - element, constituent
 
 **Definition:**
-*(Stub — full definition to be written.)* A substance listed as part of what is in the jar. Either simple
-(salt, water, onion) or composite. Defined once and reused across products.
+A substance listed as part of what is in the jar. Either simple (salt, water, onion) or composite.
+Defined once, in its own plugin-owned entity, and attached to any number of products — never a catalogue
+`Product` (GIL-001 Q1: a `Product` row carries pricing, stock, and visibility fields an ingredient has no
+use for). Carries a localized name and description, and a single allergen classification from the 14 EU
+Regulation 1169/2011 Annex II allergens.
 
-Whether an ingredient is its own record or a catalogue `Product` is **open** — GIL-001 Q1.
+**Defined in code:**
+- `Ingredient`
+- `AllergenType`
+- `ProductIngredientMapping`
 
 **Example usage:**
 "Beef broth is an ingredient of onion soup, and is itself composite."
@@ -284,8 +290,16 @@ Whether an ingredient is its own record or a catalogue `Product` is **open** —
   ingredient is simply an ingredient)
 
 **Definition:**
-*(Stub — full definition to be written.)* An ingredient itself made of ingredients, to arbitrary depth.
-Beef broth is bones, water, carrot, celery, salt; onion soup lists beef broth as one ingredient.
+An ingredient itself made of ingredients, up to a hard ceiling of 3 nested ingredient-to-ingredient edges
+(the product-to-ingredient attachment does not count towards that limit). Beef broth is bones, water,
+carrot, celery, salt; onion soup lists beef broth as one ingredient. The direct edges are the composition;
+the full reachable set at every depth is precomputed into a closure so a page render never needs a
+recursive read. See [Business logic](../BusinessLogic/product-ingredients.md) for the depth rule, cycle
+prevention, and closure maintenance.
 
-The nesting is why no existing mechanism fits: every one of them stops at one level, or three for
-`Filter level value`.
+The nesting is why no existing mechanism fits: every one of them stops at one level, or three fixed levels
+for `Filter level value` — and even that one is three flat columns, not a real parent-child tree.
+
+**Defined in code:**
+- `IngredientComposition`
+- `IngredientClosure`

@@ -1,0 +1,25 @@
+@model IngredientModel
+
+@{
+    const string hideInfoBlockAttributeName = "IngredientPage.HideInfoBlock";
+    const string hideCompositionBlockAttributeName = "IngredientPage.HideCompositionBlock";
+    var customer = await workContext.GetCurrentCustomerAsync();
+    var hideInfoBlock = await genericAttributeService.GetAttributeAsync<bool>(customer, hideInfoBlockAttributeName);
+    var hideCompositionBlock = await genericAttributeService.GetAttributeAsync<bool>(customer, hideCompositionBlockAttributeName);
+}
+
+<div asp-validation-summary="All"></div>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="form-horizontal">
+            <nop-cards id="ingredient-cards">
+                <nop-card asp-name="ingredient-info" asp-icon="fas fa-info" asp-title="@T("Plugins.Misc.Ingredients.Ingredients.Info")" asp-hide-block-attribute-name="@hideInfoBlockAttributeName" asp-hide="@hideInfoBlock">@await Html.PartialAsync("_CreateOrUpdate.Info", Model)</nop-card>
+                @if (Model.Id > 0)
+                {
+                    <nop-card asp-name="ingredient-composition" asp-icon="fas fa-sitemap" asp-title="@T("Plugins.Misc.Ingredients.Ingredients.Composition")" asp-hide-block-attribute-name="@hideCompositionBlockAttributeName" asp-hide="@hideCompositionBlock">@await Html.PartialAsync("_CreateOrUpdate.Composition", Model)</nop-card>
+                }
+            </nop-cards>
+        </div>
+    </div>
+</section>

@@ -83,6 +83,47 @@ The plugin output path under `Presentation/Nop.Web/Plugins/` plus a deep worktre
 exact claim has been made confidently and wrongly before, on a machine where the setting was already on
 and the failure still reproduced. If it is already enabled, the cause is something else.
 
+## Giving a plugin test coverage for the first time — schema never created, or DI can't resolve it
+
+`Nop.Tests` does not reference any plugin project by default, and `BaseNopTest`'s test-only DI container
+does not auto-discover `INopStartup` implementations the way the real app does — both have to be wired
+explicitly, and the wiring is easy to get subtly wrong in a way that produces no build error and only
+shows up as unrelated tests breaking. This happened for real once already (GIL-001, the first plugin in
+this repo to get test coverage at all — check whether a plugin has already gone through this before
+repeating the investigation):
+
+1. **`ProjectReference` from `Nop.Tests.csproj` to the plugin's `.csproj`** — without it, the plugin's
+   types aren't visible to the test project at all.
+2. **A `PluginDescriptor` entry plus an explicit
+   `migrationManager.ApplyUpMigrations(pluginAssembly, MigrationProcessType.Installation)` call in
+   `ServiceTest.InitPlugins()`** — marking a plugin descriptor "installed" only affects `IPluginManager`
+   resolution, it does not create the plugin's schema. Skip this and every test touching the plugin's
+   entities fails with a "no such table" SQLite error that looks like a broken migration when the
+   migration is actually fine, just never run.
+3. **Hand-register the plugin's services in `BaseNopTest`'s `ConfigureServices`**, mirroring every other
+   service already registered there — `INopStartup.ConfigureServices` is never invoked by this test
+   harness, so a plugin's own DI registrations are simply skipped, producing a DI-resolution failure at
+   the first `GetService<T>()` call for anything the plugin owns.
+4. **If (and only if) the plugin's migration derives from `Migration` rather than `ForwardOnlyMigration`**
+   (needed for a real `Down()`, e.g. so uninstall actually drops the plugin's tables) — `BaseNopTest`'s
+   migration-assembly scan only calls `FindClassesOfType<ForwardOnlyMigration>()`, so that migration is
+   invisible to it. **Union in that one plugin's assembly by direct type reference
+   (`.Union([typeof(TheirSchemaMigration).Assembly])`); do not widen the `FindClassesOfType<T>` type
+   argument itself to `MigrationBase` "to be safe."** That widening is not scoped to the new plugin — it
+   also newly exposes `Nop.Web.Framework`'s real 4.40→5.00 upgrade-path migrations (which have plenty of
+   `MigrationBase`-derived, non-`ForwardOnlyMigration` classes: `SettingMigration`, `AclMigration`,
+   `LocalizationMigration`, etc.) to `ApplyUpMigrations`, and those run for real against the freshly
+   installed SQLite test database — silently corrupting seeded defaults for tests that have nothing to do
+   with the plugin being added. Confirmed reproduction: this exact widening broke
+   `TaxServiceTests.CanGetProductPrice` and `ProductAttributeParserTests.CanRenderAttributesWithoutPrices`
+   with no error at the point of the change, only a wrong assertion value several files away.
+
+Step 4's fix is a **named, single-plugin literal, not a general rule** — the next plugin that also needs
+a `Migration`-based schema migration under test will hit the identical silent no-op unless someone
+remembers to extend that same union. There is no automatic way to make this generic without reintroducing
+the exact regression above; check `src/Tests/Nop.Tests/BaseNopTest.cs`'s migration-scan comment for the
+current list before assuming it already covers a new plugin.
+
 ## Integration/data tests failing on a clean checkout
 
 Data-touching tests run migrations against SQLite via `SqLiteNopDataProvider`. A migration that uses

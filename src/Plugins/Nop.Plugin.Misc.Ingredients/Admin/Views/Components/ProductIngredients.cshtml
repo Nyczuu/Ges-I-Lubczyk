@@ -1,0 +1,67 @@
+@model ProductIngredientSearchModel
+
+@{
+    const string hideIngredientsBlockAttributeName = "ProductPage.HideIngredientsBlock";
+    var customer = await workContext.GetCurrentCustomerAsync();
+    var hideIngredientsBlock = await genericAttributeService.GetAttributeAsync<bool>(customer, hideIngredientsBlockAttributeName);
+}
+
+<nop-card asp-name="product-ingredients" asp-icon="fas fa-sitemap" asp-title="@T("Plugins.Misc.Ingredients.ProductIngredients")" asp-hide-block-attribute-name="@hideIngredientsBlockAttributeName" asp-hide="@hideIngredientsBlock">
+    <div class="card-body">
+        <div class="card card-default">
+            <div class="card-body">
+                @await Html.PartialAsync("Table", new DataTablesModel
+                {
+                    Name = "product-ingredients-grid",
+                    UrlRead = new DataUrl("ProductIngredientList", "IngredientsAdmin", new RouteValueDictionary { [nameof(Model.ProductId)] = Model.ProductId }),
+                    UrlDelete = new DataUrl("ProductIngredientDelete", "IngredientsAdmin", null),
+                    UrlUpdate = new DataUrl("ProductIngredientUpdate", "IngredientsAdmin", null),
+                    Length = Model.PageSize,
+                    LengthMenu = Model.AvailablePageSizes,
+                    ColumnCollection = new List<ColumnProperty>
+                    {
+                        new ColumnProperty(nameof(ProductIngredientModel.IngredientName))
+                        {
+                            Title = T("Plugins.Misc.Ingredients.Fields.Ingredient").Text
+                        },
+                        new ColumnProperty(nameof(ProductIngredientModel.DisplayOrder))
+                        {
+                            Title = T("Plugins.Misc.Ingredients.Fields.DisplayOrder").Text,
+                            ClassName = NopColumnClassDefaults.CenterAll,
+                            Editable = true,
+                            EditType = EditType.Number
+                        },
+                        new ColumnProperty(nameof(ProductIngredientModel.Id))
+                        {
+                            Title = T("Admin.Common.Edit").Text,
+                            Width = "100",
+                            ClassName = NopColumnClassDefaults.Button,
+                            Render = new RenderButtonsInlineEdit()
+                        },
+                        new ColumnProperty(nameof(ProductIngredientModel.Id))
+                        {
+                            Title = T("Admin.Common.Delete").Text,
+                            Width = "100",
+                            Render = new RenderButtonRemove(T("Admin.Common.Delete").Text),
+                            ClassName = NopColumnClassDefaults.Button
+                        }
+                    }
+                })
+            </div>
+            <div class="card-footer">
+                <button type="submit" id="btnAddNewProductIngredient" class="btn btn-primary" onclick="javascript:OpenWindow('@(Url.Action("ProductIngredientAddPopup", "IngredientsAdmin", new {productId = Model.ProductId, btnId = "btnRefreshProductIngredients", formId = "product-form"}))', 800, 800, true); return false;">
+                    @T("Plugins.Misc.Ingredients.ProductIngredients.AddNew")
+                </button>
+                <button type="submit" id="btnRefreshProductIngredients" style="display: none"></button>
+                <script>
+                    $(function() {
+                        $('#btnRefreshProductIngredients').click(function () {
+                            updateTable('#product-ingredients-grid');
+                            return false;
+                        });
+                    });
+                </script>
+            </div>
+        </div>
+    </div>
+</nop-card>
