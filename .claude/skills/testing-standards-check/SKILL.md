@@ -40,6 +40,10 @@ banned: xUnit, MSTest, TUnit, NSubstitute.
 - [ ] **Every test that inserts data deletes it, and the delete happens *before* the assertions that
       might throw.** A failing assertion after an un-deleted insert leaks rows into shared test state
       and cascades failures into unrelated tests — which is how one broken test becomes twenty.
+- [ ] **A throw-assertion test whose Arrange inserted real rows wraps arrange–act–cleanup in
+      `try`/`finally`.** "Delete before the assertion" doesn't apply when the assertion IS the act —
+      if a regression stops the code from throwing, `Assert.ThrowsAsync`/`Assert.Throws` fails and skips
+      any cleanup written after it. See the full doc for a worked example.
 
 ## Asserting that an async method throws
 

@@ -55,6 +55,19 @@ dotnet test src --configuration Release
 Run them. Read the output. Never report a result you did not observe — your final report is read as
 evidence by a session that cannot see your terminal.
 
+**If a test fails that you believe is unrelated to your change, "pre-existing" is a claim you verify,
+not a label you apply from reading the code.** Check it against the base branch — `git worktree add` a
+throwaway checkout at the merge-base commit and run the same test there, or `git show <base>:<path>` the
+affected file if a full worktree is overkill. If `git stash`/`git worktree` is denied by your sandbox and
+you genuinely cannot verify, say so as plainly in your **Verification** section as in your findings —
+report the raw fact ("N tests failed: `<name>`, `<name>`") there, and put "I believe this is pre-existing
+because X, but could not verify against the base branch" only in **Blocked on / findings for the
+orchestrator**, never phrased as settled fact in Verification. An orchestrating session that only skims
+Verification for a pass/fail count should not come away thinking something was confirmed when it wasn't
+— this exact gap once let a real regression (a too-broad migration-assembly scan silently breaking two
+unrelated tests) get reported as "pre-existing failures unrelated to this change" in Verification, with
+the actual uncertainty buried three sections later in Deviations.
+
 ## Stop and report, do not improvise
 
 Stop and return a finding, rather than deciding yourself, when:

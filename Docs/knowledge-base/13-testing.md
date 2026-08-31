@@ -104,3 +104,17 @@ public class ScheduleTaskServiceTests : ServiceTest
     exception type matters
     (`[verified: src/Tests/Nop.Tests/Nop.Services.Tests/Catalog/PriceFormatterTests.cs]`). Perfectly
     valid here; earlier revisions of this document wrongly said otherwise.
+- **A throw-assertion test whose Arrange step inserted real rows still needs `try`/`finally` cleanup —
+  "delete before the assertion" does not apply when the assertion *is* the act.** The
+  `InsertTaskShouldRaiseExceptionIfTaskIsNull` example above has nothing to clean up (the null argument
+  never reaches the database), which is why it doesn't need this. But a test shaped like "insert a
+  composite ingredient, attach it to a product, assert that deleting it throws because it's in use"
+  creates rows *before* the throwing call, and cleanup of those rows can't come "before" an assertion
+  that is itself the only call under test. If a regression ever stops the code from throwing,
+  `Assert.ThrowsAsync`/`Assert.Throws` fails immediately and skips any cleanup written after it — leaking
+  the arranged rows into shared SQLite test state, which then cascades into unrelated tests (worse if the
+  leaked row is itself an invalid edge/state the test exists to reject). Wrap arrange–act–cleanup in
+  `try { ...arrange...; Assert.ThrowsAsync<T>(...); } finally { ...cleanup...; }` whenever Arrange creates
+  data the throw-assertion doesn't itself consume. [Incident: GIL-001,
+  `IngredientCompositionServiceTests`/`IngredientServiceTests` — self-loop/cycle/over-depth/delete-blocked
+  tests all had this exact gap on first pass, caught by the post-implementation gate, not by this doc.]
