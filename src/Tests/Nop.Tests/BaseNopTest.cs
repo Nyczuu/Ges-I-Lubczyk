@@ -230,9 +230,12 @@ public partial class BaseNopTest
         //This is a named, single-plugin literal, not a general mechanism: the next test-covered plugin with
         //its own real Down()-needing migration will hit the identical silent no-op unless this line is
         //extended to union in its assembly too.
+        //Nop.Plugin.Misc.ServingSuggestions.Data.Migrations.SchemaMigration is the second such plugin (GIL-002)
+        //- it also derives from Migration (not ForwardOnlyMigration) for the same reason, a real Down().
         var mAssemblies = typeFinder.FindClassesOfType<ForwardOnlyMigration>()
             .Select(t => t.Assembly)
             .Union([typeof(global::Nop.Plugin.Misc.Ingredients.Data.Migrations.SchemaMigration).Assembly])
+            .Union([typeof(global::Nop.Plugin.Misc.ServingSuggestions.Data.Migrations.SchemaMigration).Assembly])
             .Distinct()
             .ToArray();
 
@@ -323,6 +326,7 @@ public partial class BaseNopTest
         services.AddScoped<global::Nop.Plugin.Misc.Ingredients.Services.IIngredientService, global::Nop.Plugin.Misc.Ingredients.Services.IngredientService>();
         services.AddScoped<global::Nop.Plugin.Misc.Ingredients.Services.IIngredientCompositionService, global::Nop.Plugin.Misc.Ingredients.Services.IngredientCompositionService>();
         services.AddScoped<global::Nop.Plugin.Misc.Ingredients.Services.IProductIngredientService, global::Nop.Plugin.Misc.Ingredients.Services.ProductIngredientService>();
+        services.AddScoped<global::Nop.Plugin.Misc.ServingSuggestions.Services.IServingSuggestionService, global::Nop.Plugin.Misc.ServingSuggestions.Services.ServingSuggestionService>();
         services.AddTransient<IBackInStockSubscriptionService, BackInStockSubscriptionService>();
         services.AddTransient<ICategoryService, CategoryService>();
         services.AddTransient<IFilterLevelValueService, FilterLevelValueService>();

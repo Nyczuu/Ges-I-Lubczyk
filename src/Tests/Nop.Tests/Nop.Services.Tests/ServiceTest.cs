@@ -9,6 +9,7 @@ using Nop.Core.Infrastructure;
 using Nop.Data.Configuration;
 using Nop.Data.Migrations;
 using Nop.Plugin.Misc.Ingredients;
+using Nop.Plugin.Misc.ServingSuggestions;
 using Nop.Services.Configuration;
 using Nop.Services.Plugins;
 using Nop.Tests.Nop.Services.Tests.Directory;
@@ -97,6 +98,14 @@ public abstract class ServiceTest : BaseNopTest
                     FriendlyName = "Ingredients",
                     Installed = true,
                     ReferencedAssembly = typeof(IngredientsPlugin).Assembly
+                }, true),
+                (new PluginDescriptor
+                {
+                    PluginType = typeof(ServingSuggestionsPlugin),
+                    SystemName = ServingSuggestionsDefaults.SystemName,
+                    FriendlyName = "Serving suggestions",
+                    Installed = true,
+                    ReferencedAssembly = typeof(ServingSuggestionsPlugin).Assembly
                 }, true)
             }
         };
@@ -116,6 +125,7 @@ public abstract class ServiceTest : BaseNopTest
         //safe to call once per test-fixture instantiation)
         var migrationManager = GetService<IMigrationManager>();
         migrationManager.ApplyUpMigrations(typeof(IngredientsPlugin).Assembly, MigrationProcessType.Installation);
+        migrationManager.ApplyUpMigrations(typeof(ServingSuggestionsPlugin).Assembly, MigrationProcessType.Installation);
     }
 }
 

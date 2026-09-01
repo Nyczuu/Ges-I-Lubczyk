@@ -1,0 +1,110 @@
+@model ServingSuggestionModel
+
+@{
+    const string hideServingSuggestionBlockAttributeName = "ProductPage.HideServingSuggestionBlock";
+    var customer = await workContext.GetCurrentCustomerAsync();
+    var hideServingSuggestionBlock = await genericAttributeService.GetAttributeAsync<bool>(customer, hideServingSuggestionBlockAttributeName);
+}
+
+<nop-card asp-name="serving-suggestion" asp-icon="fas fa-utensils" asp-title="@T("Plugins.Misc.ServingSuggestions.ServingSuggestion")" asp-hide-block-attribute-name="@hideServingSuggestionBlockAttributeName" asp-hide="@hideServingSuggestionBlock">
+    <div class="card-body">
+        @if (Model.HasServingSuggestion)
+        {
+            <div class="row">
+                <div class="col-md-3">
+                    <img src="@Model.PictureUrl" class="img-thumbnail" alt="@Model.Title" />
+                </div>
+                <div class="col-md-9">
+                    <h4>@Model.Title</h4>
+                    <p>@Model.Description</p>
+                    <button type="button" id="btnEditServingSuggestion" class="btn btn-primary" onclick="javascript:OpenWindow('@(Url.Action("ServingSuggestionEditPopup", "ServingSuggestion", new {productId = Model.ProductId, btnId = "btnRefreshServingSuggestion", formId = "product-form"}))', 800, 800, true); return false;">
+                        @T("Admin.Common.Edit")
+                    </button>
+                    <button type="button" id="btnDeleteServingSuggestion" class="btn btn-danger">
+                        @T("Admin.Common.Delete")
+                    </button>
+                </div>
+            </div>
+
+            <div class="card card-default mt-3">
+                <div class="card-body">
+                    @await Html.PartialAsync("Table", new DataTablesModel
+                    {
+                        Name = "serving-suggestion-steps-grid",
+                        UrlRead = new DataUrl("ServingSuggestionStepList", "ServingSuggestion", new RouteValueDictionary { [nameof(Model.ServingSuggestionStepSearchModel.ServingSuggestionId)] = Model.ServingSuggestionStepSearchModel.ServingSuggestionId }),
+                        UrlDelete = new DataUrl("ServingSuggestionStepDelete", "ServingSuggestion", null),
+                        UrlUpdate = new DataUrl("ServingSuggestionStepUpdate", "ServingSuggestion", null),
+                        Length = Model.ServingSuggestionStepSearchModel.PageSize,
+                        LengthMenu = Model.ServingSuggestionStepSearchModel.AvailablePageSizes,
+                        ColumnCollection = new List<ColumnProperty>
+                        {
+                            new ColumnProperty(nameof(ServingSuggestionStepModel.Text))
+                            {
+                                Title = T("Plugins.Misc.ServingSuggestions.Fields.Text").Text
+                            },
+                            new ColumnProperty(nameof(ServingSuggestionStepModel.DisplayOrder))
+                            {
+                                Title = T("Plugins.Misc.ServingSuggestions.Fields.DisplayOrder").Text,
+                                ClassName = NopColumnClassDefaults.CenterAll,
+                                Editable = true,
+                                EditType = EditType.Number
+                            },
+                            new ColumnProperty(nameof(ServingSuggestionStepModel.Id))
+                            {
+                                Title = T("Admin.Common.Edit").Text,
+                                Width = "100",
+                                ClassName = NopColumnClassDefaults.Button,
+                                Render = new RenderButtonsInlineEdit()
+                            },
+                            new ColumnProperty(nameof(ServingSuggestionStepModel.Id))
+                            {
+                                Title = T("Admin.Common.Delete").Text,
+                                Width = "100",
+                                Render = new RenderButtonRemove(T("Admin.Common.Delete").Text),
+                                ClassName = NopColumnClassDefaults.Button
+                            }
+                        }
+                    })
+                </div>
+                <div class="card-footer">
+                    <button type="submit" id="btnAddNewServingSuggestionStep" class="btn btn-primary" onclick="javascript:OpenWindow('@(Url.Action("ServingSuggestionStepCreatePopup", "ServingSuggestion", new {servingSuggestionId = Model.ServingSuggestionStepSearchModel.ServingSuggestionId, btnId = "btnRefreshServingSuggestionSteps", formId = "product-form"}))', 800, 800, true); return false;">
+                        @T("Plugins.Misc.ServingSuggestions.Steps.AddNew")
+                    </button>
+                    <button type="submit" id="btnRefreshServingSuggestionSteps" style="display: none"></button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <button type="button" id="btnAddServingSuggestion" class="btn btn-primary" onclick="javascript:OpenWindow('@(Url.Action("ServingSuggestionEditPopup", "ServingSuggestion", new {productId = Model.ProductId, btnId = "btnRefreshServingSuggestion", formId = "product-form"}))', 800, 800, true); return false;">
+                @T("Plugins.Misc.ServingSuggestions.ServingSuggestion.AddNew")
+            </button>
+        }
+        <button type="submit" id="btnRefreshServingSuggestion" style="display: none"></button>
+        <script>
+            $(function() {
+                $('#btnRefreshServingSuggestion').click(function () {
+                    location.reload();
+                    return false;
+                });
+                $('#btnRefreshServingSuggestionSteps').click(function () {
+                    updateTable('#serving-suggestion-steps-grid');
+                    return false;
+                });
+                $('#btnDeleteServingSuggestion').click(function () {
+                    if (confirm('@T("Plugins.Misc.ServingSuggestions.ServingSuggestion.DeleteConfirm").Text.Replace("'", "\\'")')) {
+                        $.ajax({
+                            type: 'POST',
+                            url: '@Url.Action("ServingSuggestionDelete", "ServingSuggestion", new { productId = Model.ProductId })',
+                            data: { __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val() },
+                            success: function () {
+                                location.reload();
+                            }
+                        });
+                    }
+                    return false;
+                });
+            });
+        </script>
+    </div>
+</nop-card>

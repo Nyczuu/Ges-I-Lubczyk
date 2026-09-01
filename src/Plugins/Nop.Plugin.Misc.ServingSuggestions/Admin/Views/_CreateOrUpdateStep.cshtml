@@ -1,0 +1,62 @@
+@model ServingSuggestionStepModel
+
+<div asp-validation-summary="All"></div>
+<input asp-for="Id" type="hidden" />
+<input asp-for="ServingSuggestionId" type="hidden" />
+
+@if (ViewBag.RefreshPage == true)
+{
+    <script>
+        try {window.opener.document.forms['@(Context.Request.Query["formId"])'].@(Context.Request.Query["btnId"]).click();}
+        catch (e){}
+        window.close();
+    </script>
+}
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="form-horizontal">
+            <div class="cards-group">
+                <div class="card card-default card-popup">
+                    <div class="card-body">
+                        @(await Html.LocalizedEditorAsync<ServingSuggestionStepModel, ServingSuggestionStepLocalizedModel>("servingsuggestionstep-localized",
+                        @<div>
+                            <div class="form-group row">
+                                <div class="col-sm-3">
+                                    <nop-label asp-for="@Model.Locales[item].Text" />
+                                </div>
+                                <div class="col-sm-9">
+                                    <nop-editor asp-for="@Model.Locales[item].Text" />
+                                    <span asp-validation-for="@Model.Locales[item].Text"></span>
+                                </div>
+                            </div>
+                            <input type="hidden" asp-for="@Model.Locales[item].LanguageId" />
+                        </div>
+                        ,
+                        @<div>
+                            <div class="form-group row">
+                                <div class="col-sm-3">
+                                    <nop-label asp-for="Text" />
+                                </div>
+                                <div class="col-sm-9">
+                                    <nop-editor asp-for="Text" asp-required="true" />
+                                    <span asp-validation-for="Text"></span>
+                                </div>
+                            </div>
+                        </div>
+                        ))
+                        <div class="form-group row">
+                            <div class="col-sm-3">
+                                <nop-label asp-for="DisplayOrder" />
+                            </div>
+                            <div class="col-sm-9">
+                                <nop-editor asp-for="DisplayOrder" />
+                                <span asp-validation-for="DisplayOrder"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

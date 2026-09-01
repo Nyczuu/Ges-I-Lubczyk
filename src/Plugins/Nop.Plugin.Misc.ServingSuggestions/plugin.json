@@ -1,0 +1,11 @@
+{
+  "Group": "Misc",
+  "FriendlyName": "Serving suggestions",
+  "SystemName": "Misc.ServingSuggestions",
+  "Version": "5.00.1",
+  "SupportedVersions": [ "5.00" ],
+  "Author": "Ges I Lubczyk",
+  "DisplayOrder": 1,
+  "FileName": "Nop.Plugin.Misc.ServingSuggestions.dll",
+  "Description": "Serving suggestion (title, description, image, ordered steps) on products."
+}

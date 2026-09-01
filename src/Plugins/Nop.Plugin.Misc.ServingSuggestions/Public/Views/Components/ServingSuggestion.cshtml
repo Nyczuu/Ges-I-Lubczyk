@@ -1,0 +1,28 @@
+@model PublicServingSuggestionModel
+
+<div class="product-serving-suggestion">
+    <div class="title">
+        <strong>@Model.Title</strong>
+    </div>
+    @if (!string.IsNullOrEmpty(Model.PictureUrl))
+    {
+        <div class="picture">
+            <img src="@Model.PictureUrl" alt="@Model.Title" title="@Model.Title" />
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Model.Description))
+    {
+        <div class="description">
+            @Model.Description
+        </div>
+    }
+    @if (Model.Steps.Any())
+    {
+        <ol class="steps">
+            @foreach (var step in Model.Steps)
+            {
+                <li>@step.Text</li>
+            }
+        </ol>
+    }
+</div>
