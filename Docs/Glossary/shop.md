@@ -303,3 +303,27 @@ for `Filter level value` — and even that one is three flat columns, not a real
 **Defined in code:**
 - `IngredientComposition`
 - `IngredientClosure`
+
+### Serving suggestion
+
+**Aliases to avoid:**
+- serving suggestion (packaging/food-labelling sense) — the EU food-labelling phrase describing an
+  illustrative photo on packaging ("serving suggestion: garnish not included") is a different concept
+  from this one and must not be confused with it in any spec or doc
+- presentation, plating instructions
+
+**Definition:**
+A title, description, image, and an ordered list of instruction steps describing how to serve/present a
+product, owned by exactly that one product — never a shared catalogue entry the way `Ingredient` is. The
+image is required; steps are optional. See
+[Business logic](../BusinessLogic/product-serving-suggestions.md) for the full lifecycle, including
+required-picture handling and the deletion ordering the required foreign key to `Picture` makes
+load-bearing.
+
+**Defined in code:**
+- `ServingSuggestion`
+- `ServingSuggestionStep`
+
+**Example usage:**
+"The onion soup's serving suggestion shows it in a bread bowl with a step to add croutons just before
+serving."
