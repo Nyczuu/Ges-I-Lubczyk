@@ -66,6 +66,12 @@ Two valid shapes, and the type argument differs between them:
       against the new one. A round-trip test that would have passed either way does not prove the fix.
 - [ ] **Changed persistence shape** → both directions: new-shape round trip, and that pre-change data
       still reads without throwing.
+- [ ] **New/changed controller action with real logic** — not a thin passthrough to a factory/service —
+      → a test that constructs the controller directly and calls the actual action, not one that
+      reimplements the action's logic inline to test it indirectly. "The mirrored sibling plugin has no
+      controller test either" does not excuse skipping one when *this* action has logic the sibling's
+      didn't (conditional cleanup, upload ordering, a guard the sibling never needed) — judge by what the
+      action does, not by what its mirror happened to do.
 
 ## Before calling testing work done
 

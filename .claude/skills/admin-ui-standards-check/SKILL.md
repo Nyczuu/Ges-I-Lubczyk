@@ -27,6 +27,13 @@ ACL depth in `security-permissions-check`.
       business rules, and model assembly do not live here.
 - [ ] Model building delegated to a factory (`I{Name}ModelFactory`) rather than inlined, matching the
       shape of `Presentation/Nop.Web/Areas/Admin/Factories`.
+- [ ] **An action that uploads a file (a picture, an import) alongside other model validation in the same
+      POST validates everything else first, and only performs the upload once the rest of `ModelState`
+      is already known-valid.** Uploading unconditionally and validating after leaves an orphaned row
+      (e.g. a `Picture` with nothing pointing at it) every time an unrelated field fails — and the file
+      input can't be re-populated on the re-rendered form, so a corrected resubmission orphans another
+      copy. `ProductController.ProductPictureAdd`'s separate-AJAX-call shape sidesteps this by construction
+      (no other required field in that request); a single combined action does not get that for free.
 
 ## Routes
 
@@ -41,7 +48,11 @@ ACL depth in `security-permissions-check`.
 - [ ] Every user-facing label uses `[NopResourceDisplayName("Plugins.{Group}.{Name}.Fields.X")]`.
 - [ ] Validation is **FluentValidation** in a `BaseNopValidator<TModel>` — resolved and run automatically
       on POST. **Never** DataAnnotations (`[Required]`, `[StringLength]`) on a nopCommerce view model,
-      and never a hand-rolled `ModelState.AddModelError` for a rule a validator can express.
+      and never a hand-rolled `ModelState.AddModelError` for a rule a validator can express against the
+      bound model. Exception: re-checking that same rule against a value only known *after* the action
+      processes an upload in the same request (e.g. a final `PictureId` once a new file has been saved) —
+      the validator ran against the stale pre-upload value, so a manual check against the resolved value
+      is the correct place for it, not a bypass of FluentValidation.
 - [ ] Error messages come from locale resources via `.WithMessageAwait(localizationService.GetResourceAsync(...))`,
       not hardcoded English.
 - [ ] Bounded string fields have an explicit `MaximumLength` rule — Postgres will not enforce the column
