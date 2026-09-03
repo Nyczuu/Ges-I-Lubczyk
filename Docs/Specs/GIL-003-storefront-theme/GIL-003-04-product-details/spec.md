@@ -2,7 +2,7 @@
 id: GIL-003-04
 kind: Task
 title: Product details restyle, including Ingredients and ServingSuggestions plugin output
-status: In Progress
+status: Shipped
 parent: GIL-003
 ---
 
