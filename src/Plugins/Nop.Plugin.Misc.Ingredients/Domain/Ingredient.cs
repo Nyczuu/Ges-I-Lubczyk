@@ -33,6 +33,26 @@ public class Ingredient : BaseEntity, ILocalizedEntity
     }
 
     /// <summary>
+    /// Gets or sets the energy value, in kilocalories per 100g
+    /// </summary>
+    public decimal CaloriesPer100g { get; set; }
+
+    /// <summary>
+    /// Gets or sets the protein content, in grams per 100g
+    /// </summary>
+    public decimal ProteinPer100g { get; set; }
+
+    /// <summary>
+    /// Gets or sets the fat content, in grams per 100g
+    /// </summary>
+    public decimal FatPer100g { get; set; }
+
+    /// <summary>
+    /// Gets or sets the carbohydrate content, in grams per 100g
+    /// </summary>
+    public decimal CarbohydratePer100g { get; set; }
+
+    /// <summary>
     /// Gets or sets the date and time of instance creation
     /// </summary>
     public DateTime CreatedOnUtc { get; set; }
