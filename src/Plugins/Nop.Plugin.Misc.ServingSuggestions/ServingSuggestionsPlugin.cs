@@ -102,6 +102,7 @@ public class ServingSuggestionsPlugin : BasePlugin, IMiscPlugin, IWidgetPlugin
         await _localizationService.AddOrUpdateLocaleResourceAsync(new Dictionary<string, string>
         {
             ["Plugins.Misc.ServingSuggestions.ServingSuggestion"] = "Serving suggestion",
+            ["Plugins.Misc.ServingSuggestions.PublicWidget.Title"] = "Komentarz Joanny Nycz",
             ["Plugins.Misc.ServingSuggestions.ServingSuggestion.AddNew"] = "Add serving suggestion",
             ["Plugins.Misc.ServingSuggestions.ServingSuggestion.SaveBeforeEdit"] = "You need to save the product before you can add a serving suggestion for this product page.",
             ["Plugins.Misc.ServingSuggestions.ServingSuggestion.Edit"] = "Edit serving suggestion",
