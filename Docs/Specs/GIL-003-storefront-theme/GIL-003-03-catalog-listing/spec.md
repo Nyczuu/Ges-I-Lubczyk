@@ -244,3 +244,75 @@ in the restyled sidebar, not sidebar-only; (2) sidebar's other blocks (Manufactu
 Viewed, Popular Product Tags) stay visible, unchanged; (3) Compare/Wishlist buttons left as-is, no CSS
 hiding; (4) "Receptura Joanny" caption dropped, no new locale key; (5) no "Nowość"/`MarkAsNew` ribbon —
 covered by the existing "no badge" scope decision.
+
+## Implementation plan (implementation-planner)
+
+### Files
+
+- **`src/Presentation/Nop.Web/Themes/GesILubczyk/Content/css/catalog.css`** — new (mirrors
+  `Themes/DefaultClean/Content/css/styles.css`). Already referenced by GIL-003-01's pre-registered
+  `Head.cshtml` list — no wiring change needed, only content. Selectors: `.product-item` (card shape),
+  `.picture img` (fixed height, `object-fit: cover`), `.description` (`-webkit-line-clamp: 2`),
+  `.add-info` (`display:flex; justify-content:space-between; align-items:center`),
+  `.buttons .product-box-add-to-cart-button` (pill restyle), `.item-grid` (CSS grid),
+  `.block-category-navigation .listbox .list`/`.list li`/`.list li.active`/`.list li.inactive` (pill
+  look, targeting the existing `active`/`inactive`/`last` classes `CategoryNavigation/Default.cshtml`
+  already emits — applies to both sidebar and header-band instances), `.category-pills-row
+  .block-category-navigation` (horizontal-band layout scoped to the header instance only).
+- **`src/Presentation/Nop.Web/Themes/GesILubczyk/Views/Shared/Components/CategoryNavigation/Default.cshtml`**
+  — new override (mirrors core `Views/Shared/Components/CategoryNavigation/Default.cshtml`). Full copy,
+  `@model CategoryNavigationModel`, keeping the `BreadCrumbContainsCurrentCategoryId` helper and
+  `active`/`inactive`/`last` `liClass` computation unchanged. Change: inside `CategoryLine(...)`, delete
+  the recursive `<ul class="sublist">` block for `SubCategories` — each `<li>` becomes just the `<a href>`
+  + optional product count, no nesting. **Required addition, not in the design's own listing:** add
+  `@inject INopUrlHelper NopUrl` at the top — a theme-overridden view's `_ViewImports.cshtml` ancestor
+  chain resolves from its own physical path and never merges with `Nop.Web/Views/_ViewImports.cshtml`;
+  GIL-003-01's theme `_ViewImports.cshtml` (copied from `DefaultClean`) injects `NopHtml` only, not
+  `NopUrl`, and this view calls `NopUrl.RouteGenericUrlAsync<Category>(...)`.
+- **`src/Presentation/Nop.Web/Themes/GesILubczyk/Views/Catalog/CategoryTemplate.ProductsInGridOrLines.cshtml`**
+  — new override (mirrors core same path). Full copy (`@model CategoryModel`, same `@using`s/`@inject`s,
+  same breadcrumb/filter sections, same subcategory/featured-products grids, same `_CatalogProducts`
+  call). Addition: between the `page-title` div and `page-body` div, insert
+  `<div class="category-pills-row">@await Component.InvokeAsync(typeof(CategoryNavigationViewComponent),
+  new { currentCategoryId = Model.Id, currentProductId = 0 })</div>`. **Same required addition:**
+  `@inject INopUrlHelper NopUrl` at the top (the mirror calls `NopUrl.RouteGenericUrlAsync<Category>(...)`
+  at three points).
+
+No `.csproj` edit — `Nop.Web.csproj`'s `<Content Include="Themes\**" .../>` wildcard covers every new
+file under `Themes/GesILubczyk/`.
+
+### Order of work
+
+1. Confirm GIL-003-01 prerequisites exist: `theme.json`, `Views/_ViewImports.cshtml`,
+   `Views/Shared/Head.cshtml` (with `catalog.css` already registered).
+2. Create the `CategoryNavigation/Default.cshtml` override (flattened, with the local `NopUrl` inject).
+3. Create the `CategoryTemplate.ProductsInGridOrLines.cshtml` override (full copy + pills-row addition,
+   with the local `NopUrl` inject).
+4. Create `Content/css/catalog.css`.
+5. Manual smoke check (no in-repo precedent for a theme overriding a component view — worth verifying):
+   browse a category page with `GesILubczyk` active, confirm (a) sidebar renders flat pills, (b) a
+   second horizontal pill row renders above the grid, (c) both link to real category URLs with correct
+   active/inactive state, (d) product cards match the mockup, (e) other `_ProductBox` consumers
+   (`RelatedProducts`, `HomepageProducts`, etc.) still render correctly with the new CSS.
+
+### Tests
+
+None. No service method, entity method, `IConsumer<T>`, migration, or controller action with logic is
+introduced or changed — matches spec §11.
+
+### Standards skills to load
+
+`theming-standards-check` (both `.cshtml` overrides and `catalog.css` — "override that partial/view
+component" placement, `NopHtml`-registration rule already satisfied by GIL-003-01),
+`localization-standards-check` (confirms no new literal — both copies carry over only pre-existing
+`@T(...)` calls; the design explicitly drops "Receptura Joanny" to avoid a new key).
+
+### Gaps in the approved design
+
+None. The one technical fact the approved design didn't anticipate — the missing `NopUrl` inject in the
+theme's `_ViewImports.cshtml` — has a single, self-contained fix (a local `@inject` line in each new
+file), folded into the file plan above rather than left as an open item.
+
+**Approved by:** Mateusz Nycz (developer)
+**Date:** 2026-09-03
+**Revision notes:** none — approved as planned.

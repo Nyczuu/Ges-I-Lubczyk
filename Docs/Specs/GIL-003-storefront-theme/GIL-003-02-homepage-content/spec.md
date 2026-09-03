@@ -275,3 +275,61 @@ four-icon trust-badge section is **in scope** for this Task, rendered inside the
 (Epic §3 named it as this Task's scope but the original spec text omitted it) — it loses its mockup
 position (after the product grid) since no other homepage render slot exists before the grid without a
 widget zone, which this Task's mechanism explicitly avoids; accepted as a known, deliberate trade-off.
+
+## Implementation plan (implementation-planner)
+
+### Files
+
+- **`src/Presentation/Nop.Web/Themes/GesILubczyk/Content/css/home.css`** — new (mirrors
+  `Themes/DefaultClean/Content/css/styles.css`'s `/*** TOPICS ***/` block, lines 3569–3611, for selector
+  shape/scoping convention; structurally mirrors GIL-003-01's `header-footer.css` for how a per-Task
+  theme CSS file consumes `tokens.css`). Plain hand-authored CSS, no Razor, no `@import`.
+  - Every selector prefixed `.home-page` (mirrors `styles.css:3609`) — never a bare `.topic-block*` or a
+    bare-tag selector (`.home-page h2` is forbidden — `HomepageCategoriesViewComponent`'s per-category
+    `<h2 class="title">` lives on the same page).
+  - Target classes, nested under `.home-page .topic-block-body`: `.gil-hero-title`,
+    `.gil-hero-title-accent`, `.gil-hero`, `.gil-manifesto`, `.gil-manifesto-heading`,
+    `.gil-manifesto-grid`, `.gil-quote-card`, `.gil-pillars`/`.gil-pillars .gil-pillar`,
+    `.gil-trust-badges`.
+  - Every color/font value is `var(--gil-*)` — never a hardcoded hex/font-family.
+  - Exact spacing/layout read directly from `mockup-reference.html`'s hero/manifesto/trust-badge markup.
+
+No other file changes: `Head.cshtml` already pre-registers `home.css` (GIL-003-01, not touched here);
+`Home/Index.cshtml` and `TopicBlock/Default.cshtml` (core) are unmodified; no `.csproj` entry needed —
+`Nop.Web.csproj`'s `<Content Include="Themes\**" .../>` wildcard already covers a new `home.css`.
+
+### Order of work
+
+1. Confirm GIL-003-01 has landed: `Themes/GesILubczyk/theme.json` exists and its `Head.cshtml` already
+   contains the `home.css` registration line. This Task adds no registration itself.
+2. Author `Content/css/home.css` per the contract above.
+3. Build `Nop.Web` — confirms the new static file copies via the `Themes\**` glob (no compile step is
+   actually exercised, CSS-only).
+4. Manual, out-of-code step (coordinated at rollout per Epic §7): edit the `HomepageText` Topic in
+   Admin → Content Management → Topics — leave `Title` empty, set `Body` to the markup contract above.
+5. Manual visual verification: browse `/` with `GesILubczyk` active, confirm hero/manifesto/trust-badge
+   sections match the mockup.
+
+### Tests
+
+None. No new/changed service method, entity method, `IConsumer<T>`, migration, controller action, or bug
+fix — this Task is a single static CSS file plus a manual (non-code) content edit, matching spec §11.
+
+### Standards skills to load
+
+`theming-standards-check` (placement, asset-registration checklist — already satisfied by GIL-003-01,
+nothing to add; narrowest-override principle — no view override needed at all), `localization-standards-check`
+(confirms no user-facing string is introduced in CSS content or any Razor — none is, per spec §7; catches
+an accidental hardcoded label if tempted to add a section eyebrow via CSS `content:`, which the spec
+forbids).
+
+### Gaps in the approved design
+
+None. The approved design fixes the file to create, its registration (done upstream by GIL-003-01), the
+selector-scoping rule, the class-name contract, and the token-only color/font rule; the remaining detail
+(exact spacing/markup translation from the mockup) is delegated by Epic §1 to direct consultation of that
+file — the design's stated mechanism for that level of detail, not a gap.
+
+**Approved by:** Mateusz Nycz (developer)
+**Date:** 2026-09-03
+**Revision notes:** none — approved as planned.

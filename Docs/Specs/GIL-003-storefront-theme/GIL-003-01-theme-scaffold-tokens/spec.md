@@ -386,3 +386,85 @@ database has an English `Language` row alongside Polish; (4a) Gate 2 addition: t
 would silently reintroduce the wrong-language failure mode this fix exists to prevent, just aimed at
 every language instead of English; (5) footer scope is real components + `Store`
 fields only, no invented prose; (6) initial announcement-bar copy is the implementer's free choice.
+
+## Implementation plan (implementation-planner)
+
+### Files
+
+- **`theme.json`** — new (mirrors `Themes/DefaultClean/theme.json`): same four fields, `SystemName:
+  "GesILubczyk"`, `FriendlyName: "Gęś i Lubczyk"`, `SupportRTL: true`,
+  `PreviewImageUrl: "~/Themes/GesILubczyk/preview.jpg"`, `PreviewText: "The 'Gęś i Lubczyk' site theme"`.
+- **`preview.jpg`** — new (mirrors `Themes/DefaultClean/preview.jpg`). Cosmetic only, not required by
+  `ThemeProvider.InitializeAsync`'s folder-scan.
+- **`Views/_ViewImports.cshtml`** — new, byte-for-byte copy of `Themes/DefaultClean/Views/_ViewImports.cshtml`.
+- **`Views/Shared/Head.cshtml`** — new (mirrors `Themes/DefaultClean/Views/Shared/Head.cshtml`): keep the
+  three existing registrations verbatim, append in this order:
+  `tokens.css`, `header-footer.css`, `home.css`, `catalog.css`, `product-details.css`, `mini-cart.css`
+  (all via `NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/{file}")`).
+- **`Views/Shared/_Header.cshtml`** — new override (mirrors core `Views/Shared/_Header.cshtml`): copy
+  verbatim, prepend `<div class="gil-announcement-bar">@T("Header.AnnouncementBar.Text")</div>` before
+  `<header class="header">`.
+- **`Views/Shared/Components/Footer/Default.cshtml`** — new override (mirrors core same path): copy
+  verbatim (all real component calls, disclaimer, "Powered by" block unchanged), add
+  `@inject IStoreContext storeContext`, render a conditional address/phone block from
+  `(await storeContext.GetCurrentStoreAsync()).CompanyAddress`/`CompanyPhoneNumber`.
+- **`Content/css/{styles,styles.rtl,print}.css`** — new, byte-for-byte copies of `DefaultClean`'s.
+- **`Content/css/tokens.css`** — new (no mirror): `:root` block with the eleven `--gil-color-*` and two
+  `--gil-font-*` custom properties, plus `@font-face` rules for ten `.woff2` files under `Content/fonts/`.
+- **`Content/css/header-footer.css`** — new (no mirror): logo, `MainMenu` output, announcement bar,
+  footer only — consumes only `var(--gil-*)`. **Excludes** `#topcartlink`/`.ico-cart`/`.cart-qty` per the
+  frozen contract with GIL-003-05 above.
+- **`Content/fonts/*.woff2`** — ten new binary assets matching `tokens.css`'s `@font-face` paths.
+- **`Content/images/**`** — copy `DefaultClean`'s directory verbatim except `logo.png`, replaced with the
+  branded lockup.
+- **`Nop.Web.Framework/Migrations/UpgradeTo500/GilThemeAnnouncementBarLocalizationMigration.cs`** — new
+  (mirrors `UpgradeTo500/LocalizationMigration.cs` for shape/attribute only, not its
+  English-hardcoded helper): `[NopUpdateMigration("2026-09-03 00:00:00", "5.00",
+  UpdateMigrationType.Localization)]`, resolves `ILanguageService`/`ILocalizationService` directly,
+  guards `polishLanguageId is null` (log + return), seeds `Header.AnnouncementBar.Text` for Polish only.
+
+No `.csproj`/solution-file change anywhere — `Nop.Web.csproj`'s `<Content Include="Themes\**" .../>`
+wildcard and `Nop.Web.Framework.csproj`'s implicit `Compile` globbing already cover every new file. No
+`plugin.json`/`InstallAsync` — this is a theme, not a plugin. Theme is **not** switched to active as part
+of this Task.
+
+### Order of work
+
+1. Copy `Themes/DefaultClean/` → `Themes/GesILubczyk/` verbatim (theme.json, preview.jpg,
+   `_ViewImports.cshtml`, `Head.cshtml`, the three CSS files, `Content/images/**`).
+2. Edit `theme.json`.
+3. Author `tokens.css`; source the ten `.woff2` files under `Content/fonts/`.
+4. Edit `Head.cshtml` to append the six `AppendCssFileParts` calls.
+5. Author `header-footer.css`.
+6. Create `_Header.cshtml` override.
+7. Create `Footer/Default.cshtml` override.
+8. Replace `Content/images/logo.png`.
+9. Add `GilThemeAnnouncementBarLocalizationMigration.cs` (must run against a dev/test DB before step 6's
+   bar shows real copy rather than the raw key name).
+10. Manual verification: activate theme in a non-production environment, browse home/category/product/
+    cart, confirm header/footer/tokens render, `styles.rtl.css`/`print.css` resolve, the four
+    not-yet-shipped sibling CSS files 404 harmlessly.
+
+### Tests
+
+None required — Task §11 states N/A (Razor/CSS only, no service-layer behavior), and none of this
+repo's five existing `UpgradeToXXX/LocalizationMigration.cs` precedents has ever had a dedicated test;
+confirmed structural: this repo's test harness (`BaseNopTest.cs`) scopes its migration scan to
+`ForwardOnlyMigration` plus two named plugin-schema assemblies and does not exercise
+`Nop.Web.Framework/Migrations/UpgradeTo500/*` at all.
+
+### Standards skills to load
+
+`theming-standards-check` (theme copy, `Head.cshtml`, `_Header.cshtml`, `Footer/Default.cshtml`),
+`localization-standards-check` (migration file, `@T("Header.AnnouncementBar.Text")` call).
+
+### Gaps in the approved design
+
+None outstanding — the one gap this plan raised (automated-test coverage for the migration) is resolved
+above by the harness-scope evidence; the null-language-id guard gap is resolved in the Technical design's
+revision notes.
+
+**Approved by:** Mateusz Nycz (developer)
+**Date:** 2026-09-03
+**Revision notes:** none — approved as planned, with the null-guard code change already folded into the
+Technical design section above.

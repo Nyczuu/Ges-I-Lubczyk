@@ -335,3 +335,101 @@ Task's own first-draft code, identical in shape to GIL-003-01's;
 touch) is approved over the cheaper view-only alternative; (3) migration lands in
 `Migrations/UpgradeTo500/`, matching GIL-003-01, not a new `Migrations/GesILubczyk/` folder; (4) the
 inline close-button `<script>` is accepted as mechanically necessary, not a scope expansion.
+
+## Implementation plan (implementation-planner)
+
+### Files
+
+- **`src/Presentation/Nop.Web/Models/ShoppingCart/MiniShoppingCartModel.cs`** — changed. Add four
+  properties after `ShowProductImages`, before `#region Nested Classes`:
+  ```csharp
+  public bool DisplayFreeShippingBar { get; set; }
+  public bool FreeShippingReached { get; set; }
+  public string AmountToFreeShipping { get; set; }
+  public int FreeShippingProgressPercentage { get; set; }
+  ```
+  No constructor change — `false`/`0`/`null` defaults are correct.
+- **`src/Presentation/Nop.Web/Factories/ShoppingCartModelFactory.cs`** — changed. In
+  `PrepareMiniShoppingCartModelAsync()`, inside the `if (cart.Any())` block, insert the free-shipping
+  block **after** the `foreach (var sci in cart ...)` loop and **before** the closing brace of
+  `if (cart.Any())` (not after the method's final `return model;`) — `currentCurrency` is already in
+  scope there; `_shippingSettings`, `_orderTotalCalculationService`, `_currencyService`, `_priceFormatter`
+  are already-injected fields, no new constructor parameter, no new DI registration. Exact code per the
+  Technical design above. Note: when `FreeShippingReached == true`, `AmountToFreeShipping` stays `null`
+  and `FreeShippingProgressPercentage` stays `0` — only the view/CSS "reached" branch drives the 100%-fill
+  look. `IShoppingCartModelFactory`'s interface is unchanged.
+- **`src/Presentation/Nop.Web.Framework/Migrations/UpgradeTo500/MiniCartLocalizationMigration.cs`** —
+  new, per the Technical design above (with the null-guard). Timestamp `2026-09-03 14:00:00` confirmed
+  unique against `LocalizationMigration.cs` (`2026-04-14`), `SettingMigration.cs` (`2025-10-27`), and
+  GIL-003-01's `2026-09-03 00:00:00` — **reconfirm against whatever GIL-003-01 actually merges with**,
+  since it hasn't landed yet. No `.csproj` entry needed.
+- **`src/Presentation/Nop.Web/Themes/GesILubczyk/Views/Shared/Components/FlyoutShoppingCart/Default.cshtml`**
+  — new override (mirrors core same path for content; mirrors GIL-003-01's `Footer/Default.cshtml` for
+  override mechanics). Keep `@model MiniShoppingCartModel`, `<div id="flyout-cart">` (external contract:
+  `public.ajaxcart.js:159` wholesale-replaces this markup on every add-to-cart, so interaction JS must be
+  inline, not `asp-location="Footer"`), all existing `@T(...)` calls, item/subtotal/buttons structure.
+  Add: a backdrop element + drawer panel nested inside `#flyout-cart` (CSS-driven off the existing
+  `.active` class, `HeaderLinks/Default.cshtml` untouched); the free-shipping bar block (mirrors this
+  view's own existing `string.Format(T("ShoppingCart.Mini.ItemsText").Text, ...)` pattern); an explicit
+  close button with a small inline `<script>` (`element.addEventListener('click', ...)`, scoped to this
+  view, not touching `public.ajaxcart.js`).
+- **`src/Presentation/Nop.Web/Themes/GesILubczyk/Content/css/mini-cart.css`** — new (mirrors GIL-003-01's
+  `header-footer.css` for the tokens-consumption pattern). Owns end-to-end per the frozen contract:
+  `#flyout-cart` drawer/backdrop, free-shipping bar (sage/leaf fill when reached, gold fill sized by
+  `FreeShippingProgressPercentage` otherwise), item list, subtotal, checkout button, **and**
+  `#topcartlink`/`.ico-cart`/`.cart-qty` in `HeaderLinks/Default.cshtml` (header appearance + drawer
+  contents). No `.csproj`/`Head.cshtml` change — already pre-registered by GIL-003-01.
+- **`src/Tests/Nop.Tests/Nop.Web.Tests/Public/Factories/ShoppingCartModelFactoryTests.cs`** — changed
+  (mirrors its own `CanPrepareMiniShoppingCartModel` for factory-call shape; mirrors
+  `OrderTotalCalculationServiceTests`'s `[SetUp]`/`[TearDown]` settings-mutate/restore idiom). Add a
+  private `ISettingService _settingService` field resolved in `[OneTimeSetUp]`. Add three `[Test]`
+  methods, one scenario each:
+  - `CanPrepareMiniShoppingCartModelWithFreeShippingDisabled` — `FreeShippingOverXEnabled = false`;
+    assert `DisplayFreeShippingBar` is `false`.
+  - `CanPrepareMiniShoppingCartModelWhenBelowFreeShippingThreshold` — enabled, threshold above the
+    fixture's known subtotal ($1,200.00); assert `DisplayFreeShippingBar` true, `FreeShippingReached`
+    false, `AmountToFreeShipping` not null/empty, `FreeShippingProgressPercentage` between 1 and 99.
+  - `CanPrepareMiniShoppingCartModelWhenFreeShippingReached` — threshold below the subtotal; assert
+    `FreeShippingReached` true, `AmountToFreeShipping` **null**, `FreeShippingProgressPercentage` **0**.
+  Each restores `FreeShippingOverXEnabled = false` via `_settingService.SaveSettingAsync` in `[TearDown]`.
+
+### Order of work
+
+1. `MiniShoppingCartModel.cs` — add the four properties.
+2. `ShoppingCartModelFactory.cs` — implement the free-shipping block (depends on 1).
+3. `MiniCartLocalizationMigration.cs` — independent of 1/2; timestamp must be reconciled against
+   whatever GIL-003-01 actually merges with.
+4. `FlyoutShoppingCart/Default.cshtml` override — depends on 1/2 (reads the new model properties) and on
+   GIL-003-01's theme scaffold existing.
+5. `Content/css/mini-cart.css` — depends on the class names chosen in step 4 and on `tokens.css` existing.
+6. `ShoppingCartModelFactoryTests.cs` — depends on 1 and 2.
+7. `dotnet test src --configuration Release`, real output read.
+
+### Tests
+
+`ShoppingCartModelFactoryTests.cs`'s three new tests (above) cover spec §11's required behavior. No test
+for `MiniCartLocalizationMigration.cs` itself — confirmed this repo's test harness (`BaseNopTest.cs`)
+scopes its migration scan to `ForwardOnlyMigration` plus two named plugin-schema assemblies and does not
+exercise `Nop.Web.Framework/Migrations/UpgradeTo500/*` at all, consistent with the sibling
+`LocalizationMigration.cs`/`SettingMigration.cs` having no dedicated tests either. View/CSS restyle is
+manual/visual per spec §11.
+
+### Standards skills to load
+
+`theming-standards-check` (`FlyoutShoppingCart/Default.cshtml`, `mini-cart.css` — narrowest-override
+rule, `NopHtml.AppendCssFileParts` already satisfied by GIL-003-01), `localization-standards-check`
+(the two new resource keys and the view's `@T(...)`/`string.Format` calls), `migration-standards-check`
+(timestamp-uniqueness and attribute rules for `MiniCartLocalizationMigration.cs` — note its checklist is
+schema-migration-oriented; the actual shape to follow is the sibling `LocalizationMigration.cs`/
+GIL-003-01 file, not the skill's schema checklist verbatim), `testing-standards-check` (the three new
+`[Test]` methods — one-scenario-per-test, `AwesomeAssertions`, mutate/restore discipline).
+
+### Gaps in the approved design
+
+None outstanding — the null-language-id guard gap this plan surfaced is resolved in the Technical design
+section above (guard added to both this migration and GIL-003-01's).
+
+**Approved by:** Mateusz Nycz (developer)
+**Date:** 2026-09-03
+**Revision notes:** none — approved as planned, with the null-guard code change already folded into the
+Technical design section above.

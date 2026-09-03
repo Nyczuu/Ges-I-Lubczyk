@@ -263,3 +263,76 @@ the second new locale key (Ingredients side), justified by the shared-admin-menu
 **Revision notes:** Approved as proposed — no open questions were raised by this design. The one
 deviation (a new Ingredients-side locale key instead of relabeling the shared admin-menu key) is folded
 into §7 above.
+
+## Implementation plan (implementation-planner)
+
+### Files
+
+- **`src/Plugins/Nop.Plugin.Misc.Ingredients/Public/Views/Components/Ingredients.cshtml`** — changed.
+  Line 18: `<strong>@T("Plugins.Misc.Ingredients.Ingredients"):</strong>` →
+  `<strong>@T("Plugins.Misc.Ingredients.PublicWidget.Title")</strong>` (drop the trailing colon — the
+  mockup's heading is a standalone eyebrow, not a "label: value" pair). No other line changes.
+- **`src/Plugins/Nop.Plugin.Misc.Ingredients/IngredientsPlugin.cs`** — changed. In `InstallAsync`'s
+  `AddOrUpdateLocaleResourceAsync` dictionary, add
+  `["Plugins.Misc.Ingredients.PublicWidget.Title"] = "Pełna Etykieta"`. No `UninstallAsync` change — its
+  existing `DeleteLocaleResourcesAsync("Plugins.Misc.Ingredients")` prefix sweep covers it. No `plugin.json`
+  `Version` bump (no migration added).
+- **`src/Plugins/Nop.Plugin.Misc.ServingSuggestions/Public/Views/Components/ServingSuggestion.cshtml`**
+  — changed. Insert a new `.heading` div immediately above the existing `.title` div:
+  ```cshtml
+  <div class="product-serving-suggestion">
+      <div class="heading">
+          <strong>@T("Plugins.Misc.ServingSuggestions.PublicWidget.Title")</strong>
+      </div>
+      <div class="title">
+          <strong>@Model.Title</strong>
+      </div>
+      ...
+  ```
+  Everything from the picture-conditional block onward is unchanged.
+- **`src/Plugins/Nop.Plugin.Misc.ServingSuggestions/ServingSuggestionsPlugin.cs`** — changed. In
+  `InstallAsync`'s dictionary, add
+  `["Plugins.Misc.ServingSuggestions.PublicWidget.Title"] = "Komentarz Joanny Nycz"`. No `UninstallAsync`
+  change (existing prefix sweep covers it). No `plugin.json` `Version` bump.
+- **`src/Presentation/Nop.Web/Themes/GesILubczyk/Content/css/product-details.css`** — new. Content fixed
+  verbatim in the approved Technical design above — copy it exactly, do not re-derive it. **Dependency:**
+  `Themes/GesILubczyk/` does not exist yet — blocked on GIL-003-01 landing (its `Head.cshtml` already
+  pre-registers this file, so no `Head.cshtml` edit happens in this Task).
+
+No `.csproj` change — `Nop.Web.csproj`'s `<Content Include="Themes\**" .../>` wildcard covers the new
+CSS file with no explicit entry needed.
+
+### Order of work
+
+1. `Ingredients.cshtml` locale-key swap + `IngredientsPlugin.cs` `InstallAsync` addition — independent,
+   buildable/mergeable now.
+2. `ServingSuggestion.cshtml` heading insert + `ServingSuggestionsPlugin.cs` `InstallAsync` addition —
+   independent, buildable/mergeable now.
+3. `product-details.css` — blocked on GIL-003-01 merging (theme folder + `Head.cshtml` pre-registration).
+   No compile-order dependency on steps 1–2, only a merge-sequencing dependency on the sibling Task.
+
+### Tests
+
+None required. No new/changed service method, entity/domain-rule change, `IConsumer<T>`, migration
+(`InstallAsync` dictionary literals are not FluentMigrator migrations), controller action, or bug fix —
+matches spec §11. Manual verification: browse a product with both an ingredient list and a serving
+suggestion, confirm both panels render the new Polish titles.
+
+### Standards skills to load
+
+`localization-standards-check` (before editing either `InstallAsync` dictionary and either `.cshtml`
+file — new-key naming, install/uninstall symmetry, already confirmed satisfied by the existing
+prefix-sweep `DeleteLocaleResourcesAsync` calls), `theming-standards-check` (before creating
+`product-details.css` — asset registration, zone/file names verified against the checkout), `plugin-standards-check`
+(before touching either `InstallAsync`/`UninstallAsync` pair — install/uninstall symmetry, no `Version`
+bump, no new settings/permissions).
+
+### Gaps in the approved design
+
+None. The design fully determines both plugin edits (exact key names, values, insertion points) and the
+CSS file's exact content; the only open item (CSS file creation) is explicitly blocked on GIL-003-01, not
+an undetermined design decision.
+
+**Approved by:** Mateusz Nycz (developer)
+**Date:** 2026-09-03
+**Revision notes:** none — approved as planned.
