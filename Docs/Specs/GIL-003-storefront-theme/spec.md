@@ -151,8 +151,17 @@ Task before this list was corrected):
   edit via Admin → Configuration → Languages → Resources on an existing install, never a
   `Nop.Web.Framework` migration — the migration mechanism above exists solely for keys with **no** owning
   plugin lifecycle at all.
-- **Single language:** this store runs Polish only. New locale keys are seeded for Polish only; no
-  child Task needs to iterate configured languages.
+- **Languages:** this store has both Polish and English configured, and **English is a live,
+  Published, customer-selectable working language** (confirmed by the developer after GIL-003-01's
+  post-implementation review found the risk: seeding a theme-owned key for Polish only means an
+  English-working-language customer sees the raw resource key text plus a per-page-view warning log,
+  per `LocalizationService.GetResourceAsync`'s documented missing-key fallback). Any new theme-owned
+  locale key introduced by this Epic (via the `[NopUpdateMigration(...)]` mechanism above) must seed
+  initial text for **every currently-Published language** on this store, not Polish only — looping over
+  `languageService.GetAllLanguagesAsync(true)` (or the subset that is `Published`), not a single
+  hardcoded `UniqueSeoCode == "pl"` lookup. Each language gets its own reasonable initial copy (a Polish
+  string for `pl`, an English one for `en`), both store-owner-editable afterward via Admin, same as a
+  Polish-only key would have been. This supersedes this Epic's earlier "Polish only" framing.
 - **Store-owner content changes are manual admin steps, not code:** the `HomepageText` Topic's body
   (GIL-003-02) and any category/menu content the header/footer/catalog restyle needs (GIL-003-01,
   GIL-003-03) are edited directly in Admin as part of rollout, coordinated with the single theme-switch
@@ -179,8 +188,9 @@ installed environment, a one-time manual Admin edit/add. Neither case is a `Nop.
 One narrow, developer-approved exception (Section 4): a child Task that introduces a **theme-owned**
 locale resource key — one with no plugin `InstallAsync` to seed it, because a theme has no install
 lifecycle at all — ships its own small, additive `[NopUpdateMigration(..., UpdateMigrationType.Localization)]`-style migration in
-`Nop.Web.Framework/Migrations/`, scoped to just that Task's new keys, for Polish only. This is the one
-place this Epic touches `Nop.Web.Framework` — confirmed with the developer (rule 3 of
+`Nop.Web.Framework/Migrations/`, scoped to just that Task's new keys, seeded for every currently-Published
+language on this store (Section 4) — not Polish only. This is the one place this Epic touches
+`Nop.Web.Framework` — confirmed with the developer (rule 3 of
 `00-system-instructions.md`), not decided unilaterally.
 
 ## 7. Deployment & rollout strategy
