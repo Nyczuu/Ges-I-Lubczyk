@@ -296,6 +296,13 @@ public class GilThemeAnnouncementBarLocalizationMigration : MigrationBase
         var polishLanguageId = languageService.GetAllLanguagesAsync(true).Result
             .FirstOrDefault(l => l.UniqueSeoCode == "pl")?.Id;
 
+        if (polishLanguageId is null)
+        {
+            EngineContext.Current.Resolve<ILogger>().Warning(
+                "GilThemeAnnouncementBarLocalizationMigration: no 'pl' language found, skipping resource seed.");
+            return;
+        }
+
         localizationService.AddOrUpdateLocaleResourceAsync(new Dictionary<string, string>
         {
             ["Header.AnnouncementBar.Text"] = "<initial Polish placeholder, store-owner-editable afterward>",
@@ -373,5 +380,9 @@ now, per this design's own recommendation; (2) logo lockup via image-swap, not a
 (3) migration lands in `Migrations/UpgradeTo500/`, not a new `Migrations/GesILubczyk/` folder; (4) the
 migration must explicitly target the Polish `Language` row via `ILocalizationService`, not the
 English-hardcoded `AddOrUpdateLocaleResource` FluentMigrator helper — confirmed necessary, this store's
-database has an English `Language` row alongside Polish; (5) footer scope is real components + `Store`
+database has an English `Language` row alongside Polish; (4a) Gate 2 addition: the migration must guard
+`polishLanguageId is null` (log a warning, skip the seed) rather than pass `null` through — a `null`
+`languageId` means "seed every language" per `AddOrUpdateLocaleResourceAsync`'s own semantics, which
+would silently reintroduce the wrong-language failure mode this fix exists to prevent, just aimed at
+every language instead of English; (5) footer scope is real components + `Store`
 fields only, no invented prose; (6) initial announcement-bar copy is the implementer's free choice.

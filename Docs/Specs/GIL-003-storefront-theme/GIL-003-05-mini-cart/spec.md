@@ -251,6 +251,13 @@ public class MiniCartLocalizationMigration : MigrationBase
         var polishLanguageId = languageService.GetAllLanguagesAsync(true).Result
             .FirstOrDefault(l => l.UniqueSeoCode == "pl")?.Id;
 
+        if (polishLanguageId is null)
+        {
+            EngineContext.Current.Resolve<ILogger>().Warning(
+                "MiniCartLocalizationMigration: no 'pl' language found, skipping resource seed.");
+            return;
+        }
+
         localizationService.AddOrUpdateLocaleResourceAsync(new Dictionary<string, string>
         {
             ["ShoppingCart.Mini.FreeShipping.AmountToGo"] = "Do darmowej dostawy brakuje: {0}",
@@ -320,6 +327,10 @@ time.
 **Revision notes:** Resolved during Gate 1 — (1) confirmed this store's database has an English
 `Language` row alongside Polish, making the AddOrUpdateLocaleResource English-targeting bug live and
 real — both this Task's and GIL-003-01's migrations must bypass the helper and target Polish explicitly;
+(1a) Gate 2 addition: both migrations must guard `polishLanguageId is null` (log a warning, skip the
+seed) rather than pass `null` through, since that value means "seed every language" per
+`AddOrUpdateLocaleResourceAsync`'s own semantics — a real bug the implementation-planner found in this
+Task's own first-draft code, identical in shape to GIL-003-01's;
 (2) the accurate free-shipping design (additive `MiniShoppingCartModel`/`ShoppingCartModelFactory`
 touch) is approved over the cheaper view-only alternative; (3) migration lands in
 `Migrations/UpgradeTo500/`, matching GIL-003-01, not a new `Migrations/GesILubczyk/` folder; (4) the
