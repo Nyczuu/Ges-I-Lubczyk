@@ -107,6 +107,7 @@ public class IngredientsPlugin : BasePlugin, IMiscPlugin, IWidgetPlugin
         await _localizationService.AddOrUpdateLocaleResourceAsync(new Dictionary<string, string>
         {
             ["Plugins.Misc.Ingredients.Ingredients"] = "Ingredients",
+            ["Plugins.Misc.Ingredients.PublicWidget.Title"] = "Pełna Etykieta",
             ["Plugins.Misc.Ingredients.Ingredients.List"] = "Ingredients",
             ["Plugins.Misc.Ingredients.Ingredients.AddNew"] = "Add new ingredient",
             ["Plugins.Misc.Ingredients.Ingredients.EditIngredientDetails"] = "Edit ingredient details",
