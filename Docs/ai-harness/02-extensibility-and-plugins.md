@@ -53,8 +53,10 @@ gracefully (empty/null reads), not throw.
 2. Add `plugin.json` (`Copy to Output Directory = Copy if newer`) with a globally-unique `SystemName`
    and `SupportedVersions` including `"5.00"`.
 3. Add the domain/data layer if the plugin owns new data — domain class(es) extending `BaseEntity`
-   (no navigation properties), a `NopEntityBuilder<T>` per entity, a `[NopSchemaMigration(...)]`
-   calling `this.CreateTableIfNotExists<T>()` (verified `MigrationBase` extension — **not**
+   (no navigation properties), a `NopEntityBuilder<T>` per entity, a `[NopMigration(...)]` (**not**
+   `[NopSchemaMigration(...)]` — that attribute forces the migration to run before the DI container is
+   available; every real plugin migration in this repo uses plain `NopMigration`) calling
+   `this.CreateTableIfNotExists<T>()` (verified `MigrationBase` extension — **not**
    `Create.TableFor<T>()`, which appears in some older nopCommerce doc pages but does not exist in
    this codebase). See [knowledge-base/03](../knowledge-base/03-data-access-linq2db-fluentmigrator.md)
    for the full pattern.

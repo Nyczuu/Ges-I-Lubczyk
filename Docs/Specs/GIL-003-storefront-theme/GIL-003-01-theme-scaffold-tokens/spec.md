@@ -38,8 +38,10 @@ change.
 resource keys (announcement bar, new footer copy) that never existed before, and a theme has no
 `InstallAsync`-style lifecycle to seed them. Per [GIL-003 §4](../spec.md)'s cross-cutting decision, this
 Task ships one small, additive `[NopUpdateMigration(..., UpdateMigrationType.Localization)]`-style migration under
-`Nop.Web.Framework/Migrations/`, scoped to just its own new keys, Polish only. This is the one place
-this Task touches a layer rule 3 gates — confirmed with the developer, not decided here.
+`Nop.Web.Framework/Migrations/`, scoped to just its own new keys, seeded for every language this store
+has Published (Polish and English — corrected post-implementation, see the Technical design below; not
+Polish only as first drafted). This is the one place this Task touches a layer rule 3 gates — confirmed
+with the developer, not decided here.
 
 ## 4. Extension point
 
@@ -90,7 +92,7 @@ changes) — not a data-model change.
   into the mockup's visual layout.
 - `MainMenu/Default.cshtml` output restyled via CSS only (see §4) unless design finds otherwise.
 - One additive `Nop.Web.Framework/Migrations/` localization migration (see §3) seeding the
-  announcement-bar and new footer-copy resource keys, Polish only.
+  announcement-bar and new footer-copy resource keys, for every Published language on this store.
 
 ## 7. Settings, permissions, localization
 
@@ -99,7 +101,9 @@ No new `ISettings` properties, no new permission records.
 New locale resource keys are needed for the announcement-bar text and any new footer copy the mockup
 introduces (e.g. address line, legal-link labels) — no hardcoded literal per `localization-standards-check`.
 **Resolved (developer, per [GIL-003 §4](../spec.md)):** seeded via this Task's own additive
-`Nop.Web.Framework/Migrations/` localization migration (§3), Polish only — this store runs one language.
+`Nop.Web.Framework/Migrations/` localization migration (§3), for every Published language this store has
+(Polish and English — corrected post-implementation after review found English is live and
+customer-selectable, not "Polish only" as first assumed).
 `ddd-modeler` picks the exact migration version/file name by mirroring the existing
 `UpgradeTo500/LocalizationMigration.cs` precedent; the mechanism itself is fixed here, not open.
 
@@ -271,50 +275,130 @@ keys.
 mockup uses (Fraunces 300/500/600/700 + italic 400; Plus Jakarta Sans 300/400/500/600/700) is an
 implementation-plan work item.
 
-**Migration — resolved (developer): `Migrations/UpgradeTo500/` folder, and must explicitly target
-Polish** (this store's database has an English `Language` row in addition to Polish, confirmed by the
-developer — the standard `MigrationExtensions.AddOrUpdateLocaleResource` FluentMigrator helper resolves
-its target language via `NopCommonDefaults.DefaultLanguageCulture`, which is hardcoded `"en-US"`; using
-it as-is would silently write this Task's Polish copy into the **English** resource row instead of
-Polish). New file, `src/Presentation/Nop.Web.Framework/Migrations/UpgradeTo500/GilThemeAnnouncementBarLocalizationMigration.cs`,
-resolving `ILanguageService`/`ILocalizationService` directly and calling
-`ILocalizationService.AddOrUpdateLocaleResourceAsync(IDictionary<string,string>, int? languageId)` with
-the language whose `UniqueSeoCode == "pl"` explicitly:
+**Migration — corrected after post-implementation review (reviewer + developer).** Two problems were
+found in the first-shipped version of this migration, both fixed in the design below:
+
+1. **Blocking (reviewer):** the first version resolved `ILanguageService`/`ILocalizationService` (async
+   service interfaces) and blocked on them with `.Result`/`.Wait()` — this codebase's own documented
+   anti-pattern (`Docs/knowledge-base/12-coding-standards.md`: "don't wrap a synchronous method with
+   `.Result`/`.Wait()` to avoid making a call chain async"). Every sibling migration in this exact folder
+   does the equivalent work synchronously via `ISyncCodeHelper`, matching the pattern in
+   `src/Presentation/Nop.Web.Framework/Extensions/MigrationExtensions.cs`'s `AddOrUpdateLocaleResource`.
+2. **English is a live, Published, customer-selectable language on this store** (confirmed by the
+   developer after this same review flagged the risk) — seeding `Header.AnnouncementBar.Text` for Polish
+   only means an English-working-language customer sees the raw resource key text plus a per-page-view
+   warning log (`LocalizationService.GetResourceAsync`'s documented missing-key fallback). Per the Epic's
+   now-corrected §4 "Languages" constraint, the migration must seed every configured language it has
+   copy for, not a single hardcoded `"pl"` lookup.
+
+Corrected design, using `ISyncCodeHelper` throughout (no `.Result`/`.Wait()` on any service call — the
+only `.Wait()` left is on `IStaticCacheManager.RemoveByPrefixAsync`, which has no synchronous counterpart,
+matching the exact same exception the codebase's own `AddOrUpdateLocaleResource` extension already makes)
+and a **pure, unit-testable** language-resolution step (closing `test-engineer`'s gap that the original
+version's `polishLanguageId is null` branch had no injectable seam to test):
 
 ```csharp
-[NopUpdateMigration("2026-09-03 00:00:00", "5.00", UpdateMigrationType.Localization)]
+namespace Nop.Web.Framework.Migrations.UpgradeTo500;
+
+[NopUpdateMigration("2026-09-03 09:01:00", "5.00", UpdateMigrationType.Localization)]
 public class GilThemeAnnouncementBarLocalizationMigration : MigrationBase
 {
+    private const string ResourceName = "Header.AnnouncementBar.Text";
+
+    private static readonly IDictionary<string, string> ValuesByTwoLetterCode = new Dictionary<string, string>
+    {
+        ["pl"] = "<initial Polish placeholder, store-owner-editable afterward>",
+        ["en"] = "<initial English placeholder, store-owner-editable afterward>",
+    };
+
     public override void Up()
     {
         if (!DataSettingsManager.IsDatabaseInstalled())
             return;
 
-        var languageService = EngineContext.Current.Resolve<ILanguageService>();
-        var localizationService = EngineContext.Current.Resolve<ILocalizationService>();
+        var syncCodeHelper = EngineContext.Current.Resolve<ISyncCodeHelper>();
+        var staticCacheManager = EngineContext.Current.Resolve<IStaticCacheManager>();
 
-        var polishLanguageId = languageService.GetAllLanguagesAsync(true).Result
-            .FirstOrDefault(l => l.UniqueSeoCode == "pl")?.Id;
+        var languages = syncCodeHelper.GetAllLanguages(true);
+        var resourcesToSeed = ResolveResourcesToSeed(languages, ValuesByTwoLetterCode);
 
-        if (polishLanguageId is null)
+        if (!resourcesToSeed.Any())
         {
-            EngineContext.Current.Resolve<ILogger>().Warning(
-                "GilThemeAnnouncementBarLocalizationMigration: no 'pl' language found, skipping resource seed.");
+            EngineContext.Current.Resolve<ILogger>().WarningAsync(
+                $"{nameof(GilThemeAnnouncementBarLocalizationMigration)}: no matching language found for " +
+                $"{ResourceName}, skipping resource seed.").Wait();
             return;
         }
 
-        localizationService.AddOrUpdateLocaleResourceAsync(new Dictionary<string, string>
+        var existingByLanguageId = syncCodeHelper.GetAllEntities<LocaleStringResource>(query =>
+                query.Where(r => r.ResourceName.ToLower() == ResourceName.ToLowerInvariant()
+                    && resourcesToSeed.Keys.Contains(r.LanguageId)))
+            .ToDictionary(r => r.LanguageId);
+
+        var toInsert = new List<LocaleStringResource>();
+        var toUpdate = new List<LocaleStringResource>();
+
+        foreach (var (languageId, value) in resourcesToSeed)
         {
-            ["Header.AnnouncementBar.Text"] = "<initial Polish placeholder, store-owner-editable afterward>",
-        }, polishLanguageId).Wait();
+            if (existingByLanguageId.TryGetValue(languageId, out var existing))
+            {
+                if (existing.ResourceValue == value)
+                    continue;
+
+                existing.ResourceValue = value;
+                toUpdate.Add(existing);
+            }
+            else
+            {
+                toInsert.Add(new LocaleStringResource
+                {
+                    LanguageId = languageId,
+                    ResourceName = ResourceName.ToLowerInvariant(),
+                    ResourceValue = value
+                });
+            }
+        }
+
+        if (toInsert.Any())
+            syncCodeHelper.InsertEntities(toInsert);
+
+        if (toUpdate.Any())
+            syncCodeHelper.UpdateEntities(toUpdate);
+
+        staticCacheManager.RemoveByPrefixAsync(NopEntityCacheDefaults<LocaleStringResource>.Prefix).Wait();
+    }
+
+    /// <summary>
+    /// Pure, no EngineContext/DB access — unit-testable directly. Maps each language whose two-letter
+    /// code has a configured value to that value; languages with no configured copy are skipped, not
+    /// defaulted to another language's text.
+    /// </summary>
+    internal static IDictionary<int, string> ResolveResourcesToSeed(
+        IList<Language> languages, IDictionary<string, string> valuesByTwoLetterCode)
+    {
+        return languages
+            .Where(language => valuesByTwoLetterCode.ContainsKey(language.UniqueSeoCode))
+            .ToDictionary(language => language.Id, language => valuesByTwoLetterCode[language.UniqueSeoCode]);
+    }
+
+    public override void Down()
+    {
+        // do nothing in a fresh installation
     }
 }
 ```
+
 Key naming follows the existing flat `Header.*`/`Footer.*` convention (`Header.SkipNavigation.Text`,
 `Footer.FollowUs`), not a `Plugins.{Group}.{Name}.` prefix, since this is a site-wide Header/Footer area,
-not a plugin bundle. **Resolved (developer): initial announcement-bar copy is the implementer's choice**
-(a Polish placeholder, store-owner-editable afterward via Admin) — not the mockup's specific batch-number
-flavor text, consistent with Epic §2 excluding real content population.
+not a plugin bundle. **Resolved (developer): initial copy per language is the implementer's choice**
+(placeholders, store-owner-editable afterward via Admin) — not the mockup's specific batch-number flavor
+text, consistent with Epic §2 excluding real content population.
+
+**New test required** (closes `test-engineer`'s gap): a plain NUnit test for
+`GilThemeAnnouncementBarLocalizationMigration.ResolveResourcesToSeed` — no `EngineContext`, no DB, no
+`ForwardOnlyMigration` base needed, since the method is `static` and pure. Cover: a language whose
+`UniqueSeoCode` matches a configured key is included with the right value; a language with no matching
+key is excluded (not defaulted); an empty language list returns an empty result.
 
 **No events, no caching, no permissions** — confirmed nothing in this Task touches any of those.
 
@@ -417,11 +501,12 @@ fields only, no invented prose; (6) initial announcement-bar copy is the impleme
 - **`Content/fonts/*.woff2`** — ten new binary assets matching `tokens.css`'s `@font-face` paths.
 - **`Content/images/**`** — copy `DefaultClean`'s directory verbatim except `logo.png`, replaced with the
   branded lockup.
-- **`Nop.Web.Framework/Migrations/UpgradeTo500/GilThemeAnnouncementBarLocalizationMigration.cs`** — new
-  (mirrors `UpgradeTo500/LocalizationMigration.cs` for shape/attribute only, not its
-  English-hardcoded helper): `[NopUpdateMigration("2026-09-03 00:00:00", "5.00",
-  UpdateMigrationType.Localization)]`, resolves `ILanguageService`/`ILocalizationService` directly,
-  guards `polishLanguageId is null` (log + return), seeds `Header.AnnouncementBar.Text` for Polish only.
+- **`Nop.Web.Framework/Migrations/UpgradeTo500/GilThemeAnnouncementBarLocalizationMigration.cs`** — new,
+  per the corrected Technical design above: `[NopUpdateMigration("2026-09-03 09:01:00", "5.00",
+  UpdateMigrationType.Localization)]`, uses `ISyncCodeHelper` throughout (no `.Result`/`.Wait()` on any
+  service call — the Blocking finding from post-implementation review), seeds `Header.AnnouncementBar.Text`
+  for every language it has copy for (Polish and English) via the pure, unit-tested
+  `ResolveResourcesToSeed` helper, logs-and-skips if no configured language matches.
 
 No `.csproj`/solution-file change anywhere — `Nop.Web.csproj`'s `<Content Include="Themes\**" .../>`
 wildcard and `Nop.Web.Framework.csproj`'s implicit `Compile` globbing already cover every new file. No
@@ -447,11 +532,15 @@ of this Task.
 
 ### Tests
 
-None required — Task §11 states N/A (Razor/CSS only, no service-layer behavior), and none of this
-repo's five existing `UpgradeToXXX/LocalizationMigration.cs` precedents has ever had a dedicated test;
-confirmed structural: this repo's test harness (`BaseNopTest.cs`) scopes its migration scan to
-`ForwardOnlyMigration` plus two named plugin-schema assemblies and does not exercise
-`Nop.Web.Framework/Migrations/UpgradeTo500/*` at all.
+**Updated post-implementation:** the Razor/CSS side and the migration's `Up()`/`Down()` orchestration
+remain untested for the reasons originally stated (no service-layer behavior; this repo's test harness
+structurally excludes `Nop.Web.Framework/Migrations/UpgradeTo500/*` from its migration scan). But the
+corrected design extracts `GilThemeAnnouncementBarLocalizationMigration.ResolveResourcesToSeed` as a
+`static`, pure method with no `EngineContext`/DB dependency — a plain NUnit test file (e.g.
+`src/Tests/Nop.Tests/Nop.Web.Framework.Tests/Migrations/GilThemeAnnouncementBarLocalizationMigrationTests.cs`)
+covering the three scenarios listed in the Technical design section is now required; this is not covered
+by the original "no sibling migration has ever needed a test" reasoning, since no sibling had branching
+logic to test.
 
 ### Standards skills to load
 
@@ -468,3 +557,26 @@ revision notes.
 **Date:** 2026-09-03
 **Revision notes:** none — approved as planned, with the null-guard code change already folded into the
 Technical design section above.
+
+## Post-implementation review — round 1 correction (2026-09-03)
+
+Unit-implementer shipped commit `f1e00ccf4d`; build succeeded, 1142/1142 existing tests passed. The
+post-implementation gate found:
+
+- `reviewer` — **Blocking**: the migration used `.Result`/`.Wait()` on async service calls
+  (`ILanguageService`/`ILocalizationService`), violating this codebase's documented anti-pattern rule.
+  Root-caused to the approved Technical design's own pseudocode, not implementer drift.
+- `test-engineer` — non-blocking gap: the migration's null-guard branch had correctness-sensitive logic
+  with no injectable seam to test.
+- Combined `theming-standards-check`/`localization-standards-check`/`migration-standards-check`/
+  `upgrade-safety-detector` — found a live risk: English is confirmed (by the developer) to be a live,
+  Published, customer-selectable language on this store, so seeding `Header.AnnouncementBar.Text` for
+  Polish only would show English-working-language customers the raw resource key text plus a
+  per-page-view warning log.
+- `integration-auditor` — no blocking findings; flagged the migration-timestamp-collision-with-GIL-003-05
+  check as unverifiable from this single unit (to recheck at epic-integration time).
+
+All three are fixed in the Technical design and Implementation plan sections above (rewritten to use
+`ISyncCodeHelper`, seed every Published language via a pure `ResolveResourcesToSeed` method, with a new
+required unit test). The Epic's own §4 "Languages" cross-cutting constraint was also corrected to match
+(was: Polish-only). Re-dispatched to a fresh `unit-implementer` call for the same unit/worktree.

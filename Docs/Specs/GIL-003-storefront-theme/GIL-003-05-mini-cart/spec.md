@@ -75,9 +75,10 @@ No new settings, no new permissions. Two distinct situations:
   copy has no plugin `InstallAsync` to own it — it lives in a theme view — so it follows the same
   mechanism `GIL-003-01` uses for its announcement-bar text: this Task ships its own small, additive
   `[NopUpdateMigration(..., UpdateMigrationType.Localization)]`-style migration in
-  `Nop.Web.Framework/Migrations/`, scoped to just these keys, Polish only, per
-  [GIL-003 §4](../spec.md)'s theme-owned-key rule. `ddd-modeler` picks exact key names and the Polish
-  wording (mirroring the mockup's two states — below threshold, threshold reached).
+  `Nop.Web.Framework/Migrations/`, scoped to just these keys, seeded for every Published language this
+  store has (Polish and English — corrected per [GIL-003 §4](../spec.md)'s revised "Languages" rule, not
+  Polish only as first drafted). `ddd-modeler` picks exact key names and wording per language (mirroring
+  the mockup's two states — below threshold, threshold reached).
 
 ## 8. Events & scheduled tasks
 
@@ -233,45 +234,119 @@ View: `@if (Model.DisplayFreeShippingBar)` renders the bar; `Model.FreeShippingR
 `Model.FreeShippingProgressPercentage`-driven width and `--gil-color-gold` fill — using GIL-003-01's
 fixed `--gil-` tokens, never a hardcoded hex.
 
-**Localization** — new file `src/Presentation/Nop.Web.Framework/Migrations/UpgradeTo500/MiniCartLocalizationMigration.cs`
-(folder per Gate 1 resolution above):
+**Localization — corrected to match GIL-003-01's post-implementation fix.** GIL-003-01's own migration
+shipped first with two problems this migration must not repeat: blocking on async service calls with
+`.Result`/`.Wait()` (this codebase's documented anti-pattern — use `ISyncCodeHelper` instead, matching
+`Nop.Web.Framework/Extensions/MigrationExtensions.cs`'s own pattern), and seeding Polish only when
+English is confirmed to be a live, Published, customer-selectable language on this store (per
+[GIL-003 §4](../spec.md)'s corrected "Languages" constraint). New file
+`src/Presentation/Nop.Web.Framework/Migrations/UpgradeTo500/MiniCartLocalizationMigration.cs`:
 
 ```csharp
+namespace Nop.Web.Framework.Migrations.UpgradeTo500;
+
 [NopUpdateMigration("2026-09-03 14:00:00", "5.00", UpdateMigrationType.Localization)]
 public class MiniCartLocalizationMigration : MigrationBase
 {
+    private static readonly IDictionary<string, IDictionary<string, string>> ValuesByTwoLetterCode =
+        new Dictionary<string, IDictionary<string, string>>
+        {
+            ["pl"] = new Dictionary<string, string>
+            {
+                ["ShoppingCart.Mini.FreeShipping.AmountToGo"] = "Do darmowej dostawy brakuje: {0}",
+                ["ShoppingCart.Mini.FreeShipping.Reached"] = "Przysługuje Ci darmowa dostawa!"
+            },
+            ["en"] = new Dictionary<string, string>
+            {
+                ["ShoppingCart.Mini.FreeShipping.AmountToGo"] = "Spend {0} more for free shipping",
+                ["ShoppingCart.Mini.FreeShipping.Reached"] = "You've earned free shipping!"
+            }
+        };
+
     public override void Up()
     {
         if (!DataSettingsManager.IsDatabaseInstalled())
             return;
 
-        var languageService = EngineContext.Current.Resolve<ILanguageService>();
-        var localizationService = EngineContext.Current.Resolve<ILocalizationService>();
+        var syncCodeHelper = EngineContext.Current.Resolve<ISyncCodeHelper>();
+        var staticCacheManager = EngineContext.Current.Resolve<IStaticCacheManager>();
 
-        var polishLanguageId = languageService.GetAllLanguagesAsync(true).Result
-            .FirstOrDefault(l => l.UniqueSeoCode == "pl")?.Id;
+        var languages = syncCodeHelper.GetAllLanguages(true)
+            .Where(language => ValuesByTwoLetterCode.ContainsKey(language.UniqueSeoCode))
+            .ToList();
 
-        if (polishLanguageId is null)
+        if (!languages.Any())
         {
-            EngineContext.Current.Resolve<ILogger>().Warning(
-                "MiniCartLocalizationMigration: no 'pl' language found, skipping resource seed.");
+            EngineContext.Current.Resolve<ILogger>().WarningAsync(
+                $"{nameof(MiniCartLocalizationMigration)}: no matching language found, skipping resource seed.").Wait();
             return;
         }
 
-        localizationService.AddOrUpdateLocaleResourceAsync(new Dictionary<string, string>
+        var resourceNames = ValuesByTwoLetterCode.Values.SelectMany(dict => dict.Keys).Distinct().ToList();
+        var languageIds = languages.Select(l => l.Id).ToList();
+
+        var existingByLanguageAndName = syncCodeHelper.GetAllEntities<LocaleStringResource>(query =>
+                query.Where(r => languageIds.Contains(r.LanguageId)
+                    && resourceNames.Select(n => n.ToLowerInvariant()).Contains(r.ResourceName.ToLower())))
+            .ToDictionary(r => (r.LanguageId, r.ResourceName.ToLowerInvariant()));
+
+        var toInsert = new List<LocaleStringResource>();
+        var toUpdate = new List<LocaleStringResource>();
+
+        foreach (var language in languages)
         {
-            ["ShoppingCart.Mini.FreeShipping.AmountToGo"] = "Do darmowej dostawy brakuje: {0}",
-            ["ShoppingCart.Mini.FreeShipping.Reached"] = "Przysługuje Ci darmowa dostawa!"
-        }, polishLanguageId).Wait();
+            foreach (var (resourceName, value) in ValuesByTwoLetterCode[language.UniqueSeoCode])
+            {
+                var key = (language.Id, resourceName.ToLowerInvariant());
+
+                if (existingByLanguageAndName.TryGetValue(key, out var existing))
+                {
+                    if (existing.ResourceValue == value)
+                        continue;
+
+                    existing.ResourceValue = value;
+                    toUpdate.Add(existing);
+                }
+                else
+                {
+                    toInsert.Add(new LocaleStringResource
+                    {
+                        LanguageId = language.Id,
+                        ResourceName = resourceName.ToLowerInvariant(),
+                        ResourceValue = value
+                    });
+                }
+            }
+        }
+
+        if (toInsert.Any())
+            syncCodeHelper.InsertEntities(toInsert);
+
+        if (toUpdate.Any())
+            syncCodeHelper.UpdateEntities(toUpdate);
+
+        staticCacheManager.RemoveByPrefixAsync(NopEntityCacheDefaults<LocaleStringResource>.Prefix).Wait();
+    }
+
+    public override void Down()
+    {
+        // do nothing in a fresh installation
     }
 }
 ```
 
-New resource keys, Polish only, matching the existing `ShoppingCart.Mini.*` naming already used by this
-same view's other resources (`.NoItems`, `.ItemsText`, `.UnitPrice`, etc.). The "reached" copy is kept
-simpler than the mockup's "...w boksie chłodniczym" (cold-chain packaging claim) since that packaging
-fact belongs to GIL-003-01's announcement-bar copy, not this Task — not duplicating/assuming a claim
-outside this Task's scope.
+New resource keys matching the existing `ShoppingCart.Mini.*` naming already used by this same view's
+other resources (`.NoItems`, `.ItemsText`, `.UnitPrice`, etc.), seeded for every language this store has
+copy for (Polish and English). The Polish "reached" copy is kept simpler than the mockup's "...w boksie
+chłodniczym" (cold-chain packaging claim) since that packaging fact belongs to GIL-003-01's
+announcement-bar copy, not this Task — not duplicating/assuming a claim outside this Task's scope.
+
+**Test required** (same reasoning as GIL-003-01's post-implementation fix): unlike GIL-003-01's single
+`ResolveResourcesToSeed` helper, this migration's per-language, per-key loop is straightforward enough
+that `ddd-modeler`/`unit-implementer` should extract an equivalent pure static method (e.g.
+`ResolveResourcesToSeed(IList<Language>, IDictionary<string, IDictionary<string,string>>)` returning the
+`(languageId, resourceName, value)` tuples to write) and cover it with a plain NUnit test — do not ship
+this migration's language-selection logic untested a second time.
 
 **Empty-cart message**: unchanged — reuses the existing `ShoppingCart.Mini.NoItems` resource; a brand
 voice change is a value edit, no new key, no migration.

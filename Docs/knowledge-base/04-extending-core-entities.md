@@ -23,7 +23,7 @@ not an anti-pattern, provided it's done as an additive, backward-compatible migr
 2. Add a migration that adds the column idempotently, using the current (verified) helper rather than
    hand-writing the exists-check:
    ```csharp
-   [NopSchemaMigration("2026-08-30 00:00:00", "Category. Add some new property")]
+   [NopMigration("2026-08-30 00:00:00", "Category. Add some new property")]
    public class AddSomeNewProperty : ForwardOnlyMigration
    {
        public override void Up() =>

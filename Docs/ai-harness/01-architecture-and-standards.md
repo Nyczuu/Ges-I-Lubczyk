@@ -47,7 +47,7 @@ public class MyRecordBuilder : NopEntityBuilder<MyRecord>
              .WithColumn(nameof(MyRecord.Note)).AsString(400);
 }
 
-[NopSchemaMigration("2026-08-30 00:00:00", "MyPlugin base schema", MigrationProcessType.Installation)]
+[NopMigration("2026-08-30 00:00:00", "MyPlugin base schema", MigrationProcessType.Installation)]
 public class SchemaMigration : ForwardOnlyMigration
 {
     public override void Up() => this.CreateTableIfNotExists<MyRecord>();

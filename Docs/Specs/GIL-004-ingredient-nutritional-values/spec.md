@@ -2,13 +2,16 @@
 id: GIL-004
 kind: Task
 title: Nutritional values (kcal + macros) on Ingredient, per 100g
-status: In Progress
+status: Shipped
 ---
 
 # Task — Nutritional values (kcal + macros) on Ingredient, per 100g
 
-> **Ready.** Confirmed by `spec-intake` (round 3) — all gaps from rounds 1-2 resolved. Next step:
-> `plan-and-implement`.
+> **Shipped.** Implemented and merged into `develop`. Post-implementation gate (reviewer, test-engineer,
+> integration-auditor, migration/plugin/admin-ui/localization-standards-check, upgrade-safety-detector)
+> all passed; one test-coverage gap (missing update-persistence test, spec §11) found by `test-engineer`
+> and closed before merge. See `Docs/BusinessLogic/product-ingredients.md` for the mechanism as documented
+> going forward — this spec is kept as the historical record of what was asked for.
 
 ## 1. Business goal & outcome
 
