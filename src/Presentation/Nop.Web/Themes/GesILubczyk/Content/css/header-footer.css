@@ -1,0 +1,222 @@
+/* Gęś i Lubczyk brand theme — header & footer restyle (GIL-003-01).
+
+   Scope, per the frozen contract with GIL-003-05 (see this Task's spec): logo, MainMenu output, the
+   announcement bar, and footer only. This file does NOT style the header cart trigger
+   (#topcartlink / .ico-cart / .cart-qty in HeaderLinks/Default.cshtml) or its wrapper
+   (.header-links-wrapper) — that element, including its header appearance, is owned end-to-end by
+   GIL-003-05's mini-cart.css.
+
+   Every rule below consumes var(--gil-*) tokens from tokens.css; no color or font is redefined here. */
+
+/* ---------------------------------------------------------------------------------------------------
+   Announcement bar (new markup, added by this theme's _Header.cshtml override)
+   --------------------------------------------------------------------------------------------------- */
+
+.gil-announcement-bar {
+    background-color: var(--gil-color-sage);
+    color: var(--gil-color-cream);
+    font-family: var(--gil-font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    text-align: center;
+    padding: 10px 16px;
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   Header shell + logo
+   --------------------------------------------------------------------------------------------------- */
+
+.header {
+    background-color: rgba(246, 242, 235, .92);
+    border-bottom: 1px solid var(--gil-color-linen-dark);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-lower {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 14px 24px;
+}
+
+.header-logo {
+    display: flex;
+    align-items: center;
+}
+
+.header-logo a {
+    display: inline-flex;
+    align-items: center;
+}
+
+.header-logo img {
+    max-height: 56px;
+    width: auto;
+}
+
+.header-lower .search-box {
+    flex: 1 1 auto;
+    max-width: 420px;
+}
+
+.header-lower .search-box input[type="text"] {
+    font-family: var(--gil-font-sans);
+    border: 1px solid var(--gil-color-linen-dark);
+    border-radius: 999px;
+    background-color: #fff;
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   Main navigation (MainMenuViewComponent output, rendered outside _Header.cshtml in .header-menu)
+   --------------------------------------------------------------------------------------------------- */
+
+.header-menu {
+    background-color: var(--gil-color-cream);
+    border-bottom: 1px solid var(--gil-color-linen-dark);
+}
+
+.header-menu .menu-container.menu-dropdown {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.header-menu .menu {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+}
+
+.header-menu .menu__link {
+    display: inline-block;
+    padding: 14px 0;
+    font-family: var(--gil-font-sans);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gil-color-sage-light);
+    text-decoration: none;
+}
+
+.header-menu .menu__link:hover,
+.header-menu .menu__link:focus {
+    color: var(--gil-color-sage);
+}
+
+.header-menu .menu__toggle {
+    font-family: var(--gil-font-sans);
+    font-weight: 600;
+    color: var(--gil-color-sage);
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   Footer (Footer/Default.cshtml override — same real components, re-columned)
+   --------------------------------------------------------------------------------------------------- */
+
+.gil-footer {
+    background-color: var(--gil-color-sage);
+    color: var(--gil-color-cream);
+}
+
+.gil-footer-upper {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+    padding: 48px 24px 40px;
+    border-bottom: 1px solid rgba(255, 255, 255, .15);
+}
+
+.gil-footer-upper .gil-footer-contact {
+    grid-column: span 2;
+    font-family: var(--gil-font-sans);
+}
+
+.gil-footer-contact-address,
+.gil-footer-contact-phone {
+    margin: 0 0 4px;
+    font-size: 13px;
+    color: var(--gil-color-leaf);
+}
+
+.gil-footer-upper .footer-navigation {
+    display: contents;
+}
+
+.gil-footer-upper .footer-menu__title {
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #fff;
+    margin: 0 0 16px;
+}
+
+.gil-footer-upper .footer-menu__list a {
+    font-family: var(--gil-font-sans);
+    font-size: 14px;
+    color: rgba(252, 250, 246, .7);
+    text-decoration: none;
+}
+
+.gil-footer-upper .footer-menu__list a:hover {
+    color: #fff;
+}
+
+.gil-footer-upper .follow-us .title {
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #fff;
+    margin: 0 0 16px;
+}
+
+.gil-footer-upper .social .networks {
+    display: flex;
+    gap: 12px;
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
+}
+
+.gil-footer-upper .social .networks a {
+    color: rgba(252, 250, 246, .8);
+    text-decoration: none;
+    font-family: var(--gil-font-sans);
+    font-size: 13px;
+}
+
+.gil-footer-upper .newsletter .title {
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #fff;
+}
+
+.footer-lower {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 20px 24px;
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    color: rgba(252, 250, 246, .6);
+}
+
+.footer-lower .footer-powered-by a {
+    color: var(--gil-color-gold);
+}
+
+.footer-lower .theme-selector select {
+    font-family: var(--gil-font-sans);
+    border-radius: 999px;
+}

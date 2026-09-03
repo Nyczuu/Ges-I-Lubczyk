@@ -1,0 +1,33 @@
+﻿@using Nop.Core.Domain.Catalog
+@using Nop.Services.Themes
+
+@inject CatalogSettings catalogSettings
+@inject IThemeContext themeContext
+
+@{
+    Layout ="";
+    var themeName = await themeContext.GetWorkingThemeNameAsync();
+    var supportRtl = await Html.ShouldUseRtlThemeAsync();
+
+    //add main CSS file
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/styles{(supportRtl ? ".rtl" : "")}.css");
+    
+    //add swiper css file
+    if (catalogSettings.DisplayAllPicturesOnCatalogPages)
+    {
+        NopHtml.AppendCssFileParts("~/lib_npm/swiper/swiper-bundle.min.css");
+    }
+
+    //add jQuery UI css file
+    NopHtml.AppendCssFileParts("~/lib_npm/jquery-ui-dist/jquery-ui.min.css");
+
+    //Gęś i Lubczyk brand theme: design tokens first, then the per-page stylesheets that consume them
+    //(GIL-003-02..05 own home.css/catalog.css/product-details.css/mini-cart.css; pre-registered here so
+    //the theme can be switched live without a Head.cshtml edit once every sibling Task has merged)
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/tokens.css");
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/header-footer.css");
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/home.css");
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/catalog.css");
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/product-details.css");
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/mini-cart.css");
+}

@@ -1,0 +1,92 @@
+/* Gęś i Lubczyk brand theme — design tokens.
+   Owned by GIL-003-01. Every other stylesheet in this theme (header-footer.css, home.css, catalog.css,
+   product-details.css, mini-cart.css) consumes these custom properties only — none of them redefines a
+   color or a font. Values are fixed by the GIL-003 Epic spec §4 and must not drift from it. */
+
+/* ---------------------------------------------------------------------------------------------------
+   Self-hosted web fonts (Fraunces + Plus Jakarta Sans). No Google Fonts CDN request at runtime.
+
+   Fraunces and Plus Jakarta Sans are shipped upstream as variable fonts (a single file covers a
+   continuous weight axis), so one file per script subset is enough to cover every weight the mockup
+   uses (Fraunces 300/500/600/700 + italic 400; Plus Jakarta Sans 300/400/500/600/700) — the browser
+   interpolates the exact weight from the declared font-weight range. Two subsets per style (latin,
+   latin-ext) are declared per family so both plain ASCII and Polish diacritics (ą, ć, ę, ł, ń, ó, ś, ź,
+   ż) render from the self-hosted files rather than falling back to a system font — this store is
+   Polish-only (Epic §4). --------------------------------------------------------------------------- */
+
+@font-face {
+    font-family: 'Fraunces';
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: url('../fonts/fraunces-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Fraunces';
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: url('../fonts/fraunces-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: 'Fraunces';
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/fraunces-italic-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Fraunces';
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/fraunces-italic-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: 'Plus Jakarta Sans';
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: url('../fonts/plus-jakarta-sans-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Plus Jakarta Sans';
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: url('../fonts/plus-jakarta-sans-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   Palette + typography custom properties (GIL-003 Epic spec §4 — fixed, do not edit values here without
+   updating the Epic spec first). --------------------------------------------------------------------- */
+
+:root {
+    /* Colors */
+    --gil-color-sage: #455E4F;
+    --gil-color-sage-light: #597564;
+    --gil-color-sage-soft: #E8EEE9;
+    --gil-color-leaf: #8BA593;
+    --gil-color-cream: #FCFAF6;
+    --gil-color-linen: #F6F2EB;
+    --gil-color-linen-dark: #E9E2D5;
+    --gil-color-clay: #C57056;
+    --gil-color-gold: #CD9752;
+    --gil-color-ink: #2A332E;
+    --gil-color-muted: #68776F;
+
+    /* Fonts */
+    --gil-font-serif: 'Fraunces', serif;
+    --gil-font-sans: 'Plus Jakarta Sans', sans-serif;
+}
