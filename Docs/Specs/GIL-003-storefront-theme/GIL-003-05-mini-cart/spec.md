@@ -307,6 +307,14 @@ zero-core-touch alternative.
   across every sibling GIL-003 migration (GIL-003-01's included) — whoever implements this Task picks a
   timestamp distinct from GIL-003-01's `2026-09-03 00:00:00`.
 
+### Frozen contract with GIL-003-01 (task-decomposer)
+
+This Task's `mini-cart.css` owns the header cart trigger end-to-end
+(`#topcartlink`/`.ico-cart`/`.cart-qty` in `HeaderLinks/Default.cshtml`), including its header
+appearance, not just the flyout drawer contents. GIL-003-01's `header-footer.css` does not style this
+element — frozen to avoid competing CSS on the same element surfacing only at `epic-integration-auditor`
+time.
+
 **Approved by:** Mateusz Nycz (developer)
 **Date:** 2026-09-03
 **Revision notes:** Resolved during Gate 1 — (1) confirmed this store's database has an English

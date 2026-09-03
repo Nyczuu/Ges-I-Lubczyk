@@ -357,6 +357,15 @@ above.
 `Nop.Data/Migrations/{NopUpdateMigrationAttribute,MigrationManager,UpdateMigrationType}.cs`,
 `Nop.Web.Framework/Migrations/UpgradeTo500/LocalizationMigration.cs`, `Nop.Web/Views/Shared/_Print.cshtml`.
 
+### Frozen contract with GIL-003-05 (task-decomposer)
+
+`header-footer.css` (this Task) owns logo, `MainMenu` nav, the announcement bar, and footer only. It
+does **not** style the header cart trigger (`#topcartlink`/`.ico-cart`/`.cart-qty` in
+`HeaderLinks/Default.cshtml`) — that element, including its header appearance (not just the flyout drawer
+contents), is owned end-to-end by GIL-003-05's `mini-cart.css`. Both designs referenced "the cart button"
+without this split; frozen here to avoid competing CSS on the same element surfacing only at
+`epic-integration-auditor` time.
+
 **Approved by:** Mateusz Nycz (developer)
 **Date:** 2026-09-03
 **Revision notes:** Resolved during Gate 1 — (1) pre-register all six Epic CSS files in `Head.cshtml`
