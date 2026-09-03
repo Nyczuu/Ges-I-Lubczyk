@@ -8,7 +8,15 @@
 
 <nop-card asp-name="serving-suggestion" asp-icon="fas fa-utensils" asp-title="@T("Plugins.Misc.ServingSuggestions.ServingSuggestion")" asp-hide-block-attribute-name="@hideServingSuggestionBlockAttributeName" asp-hide="@hideServingSuggestionBlock">
     <div class="card-body">
-        @if (Model.HasServingSuggestion)
+        @if (Model.ProductId == 0)
+        {
+            <div class="card card-default">
+                <div class="card-body">
+                    @T("Plugins.Misc.ServingSuggestions.ServingSuggestion.SaveBeforeEdit")
+                </div>
+            </div>
+        }
+        else if (Model.HasServingSuggestion)
         {
             <div class="row">
                 <div class="col-md-3">

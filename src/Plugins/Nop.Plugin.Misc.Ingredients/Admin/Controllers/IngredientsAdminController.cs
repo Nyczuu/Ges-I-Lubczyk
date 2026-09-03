@@ -77,7 +77,7 @@ public class IngredientsAdminController : BasePluginController
     {
         var model = await _ingredientAdminModelFactory.PrepareIngredientSearchModelAsync(new IngredientSearchModel());
 
-        return View(model);
+        return View("~/Plugins/Misc.Ingredients/Admin/Views/List.cshtml", model);
     }
 
     [HttpPost]
@@ -94,7 +94,7 @@ public class IngredientsAdminController : BasePluginController
     {
         var model = await _ingredientAdminModelFactory.PrepareIngredientModelAsync(new IngredientModel(), null);
 
-        return View(model);
+        return View("~/Plugins/Misc.Ingredients/Admin/Views/Create.cshtml", model);
     }
 
     [HttpPost, ParameterBasedOnFormName("save-continue", "continueEditing")]
@@ -117,7 +117,7 @@ public class IngredientsAdminController : BasePluginController
 
         model = await _ingredientAdminModelFactory.PrepareIngredientModelAsync(model, null, true);
 
-        return View(model);
+        return View("~/Plugins/Misc.Ingredients/Admin/Views/Create.cshtml", model);
     }
 
     [CheckPermission(IngredientsPermissionConfigManager.INGREDIENTS_VIEW)]
@@ -129,7 +129,7 @@ public class IngredientsAdminController : BasePluginController
 
         var model = await _ingredientAdminModelFactory.PrepareIngredientModelAsync(null, ingredient);
 
-        return View(model);
+        return View("~/Plugins/Misc.Ingredients/Admin/Views/Edit.cshtml", model);
     }
 
     [HttpPost, ParameterBasedOnFormName("save-continue", "continueEditing")]
@@ -156,7 +156,7 @@ public class IngredientsAdminController : BasePluginController
 
         model = await _ingredientAdminModelFactory.PrepareIngredientModelAsync(model, ingredient, true);
 
-        return View(model);
+        return View("~/Plugins/Misc.Ingredients/Admin/Views/Edit.cshtml", model);
     }
 
     [HttpPost]
@@ -227,7 +227,7 @@ public class IngredientsAdminController : BasePluginController
             ParentIngredientId = parentIngredientId
         });
 
-        return View(searchModel);
+        return View("~/Plugins/Misc.Ingredients/Admin/Views/IngredientCompositionAddPopup.cshtml", searchModel);
     }
 
     [HttpPost]
@@ -280,14 +280,14 @@ public class IngredientsAdminController : BasePluginController
                         ParentIngredientId = model.ParentIngredientId
                     });
 
-                    return View(errorSearchModel);
+                    return View("~/Plugins/Misc.Ingredients/Admin/Views/IngredientCompositionAddPopup.cshtml", errorSearchModel);
                 }
             }
         }
 
         ViewBag.RefreshPage = true;
 
-        return View(new IngredientSearchModel());
+        return View("~/Plugins/Misc.Ingredients/Admin/Views/IngredientCompositionAddPopup.cshtml", new IngredientSearchModel());
     }
 
     #endregion
@@ -336,7 +336,7 @@ public class IngredientsAdminController : BasePluginController
             ProductId = productId
         });
 
-        return View(searchModel);
+        return View("~/Plugins/Misc.Ingredients/Admin/Views/ProductIngredientAddPopup.cshtml", searchModel);
     }
 
     [HttpPost]
@@ -379,7 +379,7 @@ public class IngredientsAdminController : BasePluginController
 
         ViewBag.RefreshPage = true;
 
-        return View(new IngredientSearchModel());
+        return View("~/Plugins/Misc.Ingredients/Admin/Views/ProductIngredientAddPopup.cshtml", new IngredientSearchModel());
     }
 
     #endregion

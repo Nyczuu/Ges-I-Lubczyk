@@ -16,7 +16,7 @@
 }
 else
 {
-<form asp-controller="IngredientsAdmin" asp-action="ProductIngredientAddPopup"
+<form id="product-ingredient-add-popup-form" asp-controller="IngredientsAdmin" asp-action="ProductIngredientAddPopup"
       asp-route-productId="@Context.Request.Query["productId"]"
       asp-route-btnId="@Context.Request.Query["btnId"]"
       asp-route-formId="@Context.Request.Query["formId"]">
@@ -96,4 +96,43 @@ else
         </div>
     </section>
 </form>
+<script asp-location="Footer">
+    $(function () {
+        //the grid re-queries the server on every page/search change, which wipes and re-renders every
+        //checkbox unchecked - without this, only whatever is checked on the CURRENT page at Save time
+        //gets submitted, silently dropping selections made on pages the admin already navigated away from
+        var $table = $('#product-ingredients-popup-grid');
+        var persistedIds = new Set();
+
+        $table.on('change', 'input.checkboxGroups', function () {
+            var id = $(this).val();
+            if ($(this).is(':checked')) {
+                persistedIds.add(id);
+            } else {
+                persistedIds.delete(id);
+            }
+        });
+
+        //re-apply the checked state for rows the admin already selected whenever this page/search result
+        //re-renders them, so a page revisited later still shows what was picked
+        $table.on('draw.dt', function () {
+            $table.find('input.checkboxGroups').each(function () {
+                if (persistedIds.has($(this).val())) {
+                    $(this).prop('checked', true);
+                }
+            });
+            updateMasterCheckbox($table.parents('.dt-scroll').first());
+        });
+
+        $('#product-ingredient-add-popup-form').on('submit', function () {
+            //hand off submission from the checkboxes (only the current page's) to hidden inputs built
+            //from the full persisted set, so nothing already checked on another page gets lost
+            $table.find('input.checkboxGroups[name="SelectedIngredientIds"]').removeAttr('name');
+            var $form = $(this);
+            persistedIds.forEach(function (id) {
+                $('<input>').attr({ type: 'hidden', name: 'SelectedIngredientIds', value: id }).appendTo($form);
+            });
+        });
+    });
+</script>
 }

@@ -78,7 +78,7 @@ public class ServingSuggestionController : BasePluginController
 
         var model = await _servingSuggestionAdminModelFactory.PrepareServingSuggestionModelAsync(null, servingSuggestion, productId);
 
-        return View(model);
+        return View("~/Plugins/Misc.ServingSuggestions/Admin/Views/ServingSuggestionEditPopup.cshtml", model);
     }
 
     [HttpPost]
@@ -154,12 +154,12 @@ public class ServingSuggestionController : BasePluginController
 
             ViewBag.RefreshPage = true;
 
-            return View(model);
+            return View("~/Plugins/Misc.ServingSuggestions/Admin/Views/ServingSuggestionEditPopup.cshtml", model);
         }
 
         model = await _servingSuggestionAdminModelFactory.PrepareServingSuggestionModelAsync(model, servingSuggestion, model.ProductId, true);
 
-        return View(model);
+        return View("~/Plugins/Misc.ServingSuggestions/Admin/Views/ServingSuggestionEditPopup.cshtml", model);
     }
 
     [HttpPost]
@@ -197,7 +197,7 @@ public class ServingSuggestionController : BasePluginController
             ServingSuggestionId = servingSuggestionId
         }, null);
 
-        return View(model);
+        return View("~/Plugins/Misc.ServingSuggestions/Admin/Views/ServingSuggestionStepCreatePopup.cshtml", model);
     }
 
     [HttpPost]
@@ -213,12 +213,12 @@ public class ServingSuggestionController : BasePluginController
 
             ViewBag.RefreshPage = true;
 
-            return View(model);
+            return View("~/Plugins/Misc.ServingSuggestions/Admin/Views/ServingSuggestionStepCreatePopup.cshtml", model);
         }
 
         model = await _servingSuggestionAdminModelFactory.PrepareServingSuggestionStepModelAsync(model, null, true);
 
-        return View(model);
+        return View("~/Plugins/Misc.ServingSuggestions/Admin/Views/ServingSuggestionStepCreatePopup.cshtml", model);
     }
 
     [CheckPermission(ServingSuggestionsPermissionConfigManager.SERVING_SUGGESTIONS_VIEW)]
@@ -230,7 +230,7 @@ public class ServingSuggestionController : BasePluginController
 
         var model = await _servingSuggestionAdminModelFactory.PrepareServingSuggestionStepModelAsync(null, step);
 
-        return View(model);
+        return View("~/Plugins/Misc.ServingSuggestions/Admin/Views/ServingSuggestionStepEditPopup.cshtml", model);
     }
 
     [HttpPost]
@@ -250,12 +250,12 @@ public class ServingSuggestionController : BasePluginController
 
             ViewBag.RefreshPage = true;
 
-            return View(model);
+            return View("~/Plugins/Misc.ServingSuggestions/Admin/Views/ServingSuggestionStepEditPopup.cshtml", model);
         }
 
         model = await _servingSuggestionAdminModelFactory.PrepareServingSuggestionStepModelAsync(model, step, true);
 
-        return View(model);
+        return View("~/Plugins/Misc.ServingSuggestions/Admin/Views/ServingSuggestionStepEditPopup.cshtml", model);
     }
 
     [HttpPost]

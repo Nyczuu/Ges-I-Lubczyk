@@ -30,6 +30,21 @@ Most common failure, and it produces no error at all.
 The `.cshtml` / `Content` file is not listed as `<Content>` with `PreserveNewest` in the `.csproj`.
 Every view in this repo's plugins is listed explicitly; a new one that is not listed does not ship.
 
+## A controller fix looks unapplied at runtime after a rebuild
+
+Rebuilding while the app (`Nop.Web.exe`/`dotnet run`) is still running locks its own plugin `.dll`
+under `Presentation/Nop.Web/Plugins/{Group}.{Name}/`. MSBuild retries the copy ~10 times, then fails
+with `MSB3027: Could not copy ... Exceeded retry count of 10 ... The file is locked by: "Nop.Web (<pid>)"`
+— this shows up only as extra error lines in the build's tail, not as a solution-wide build failure if
+other projects still compiled, so it is easy to miss. The freshly compiled `obj/Debug/.../*.dll` is
+correct; the one actually deployed under `Presentation/Nop.Web/Plugins/...` is still the old one.
+Restarting the already-running process does **not** help — that process still holds its old copy open
+and keeps serving it. Symptom: a fix confirmed present in source (e.g. an explicit view path) still
+reproduces the exact pre-fix error, but only for actions not yet exercised since the last build that
+copied successfully — which can make the fix look like it "didn't work" for that specific action while
+appearing to work for another one built earlier. Fix: fully stop the running app, rebuild, confirm the
+tail has no `MSB3026`/`MSB3027`, then start it again.
+
 ## Duplicate or conflicting assembly errors when a plugin loads
 
 The `NopTarget` post-build target invoking `Build/ClearPluginAssemblies.proj` is missing from the plugin

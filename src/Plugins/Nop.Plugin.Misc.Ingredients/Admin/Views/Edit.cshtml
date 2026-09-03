@@ -30,6 +30,6 @@
         </div>
     </div>
     <input asp-for="Id" type="hidden" />
-    @await Html.PartialAsync("_CreateOrUpdate", Model)
+    @await Html.PartialAsync("~/Plugins/Misc.Ingredients/Admin/Views/_CreateOrUpdate.cshtml", Model)
 </form>
 <nop-delete-confirmation asp-model-id="@Model.Id" asp-button-id="ingredient-delete" asp-action="Delete" />

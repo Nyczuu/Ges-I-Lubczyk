@@ -130,6 +130,7 @@ public class IngredientsPlugin : BasePlugin, IMiscPlugin, IWidgetPlugin
             ["Plugins.Misc.Ingredients.Composition.SearchIngredientName"] = "Ingredient name",
             ["Plugins.Misc.Ingredients.ProductIngredients"] = "Ingredients",
             ["Plugins.Misc.Ingredients.ProductIngredients.AddNew"] = "Add ingredient",
+            ["Plugins.Misc.Ingredients.ProductIngredients.SaveBeforeEdit"] = "You need to save the product before you can add ingredients for this product page.",
             ["Plugins.Misc.Ingredients.Errors.SelfLoop"] = "An ingredient cannot be made of itself.",
             ["Plugins.Misc.Ingredients.Errors.Cycle"] = "This would create a cycle: the ingredient you are adding already contains the composite ingredient you are adding it to.",
             ["Plugins.Misc.Ingredients.Errors.MaxDepthExceeded"] = "This composition would exceed the maximum allowed nesting depth.",

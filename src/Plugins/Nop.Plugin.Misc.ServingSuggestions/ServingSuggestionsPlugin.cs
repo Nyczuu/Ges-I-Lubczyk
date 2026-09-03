@@ -103,6 +103,7 @@ public class ServingSuggestionsPlugin : BasePlugin, IMiscPlugin, IWidgetPlugin
         {
             ["Plugins.Misc.ServingSuggestions.ServingSuggestion"] = "Serving suggestion",
             ["Plugins.Misc.ServingSuggestions.ServingSuggestion.AddNew"] = "Add serving suggestion",
+            ["Plugins.Misc.ServingSuggestions.ServingSuggestion.SaveBeforeEdit"] = "You need to save the product before you can add a serving suggestion for this product page.",
             ["Plugins.Misc.ServingSuggestions.ServingSuggestion.Edit"] = "Edit serving suggestion",
             ["Plugins.Misc.ServingSuggestions.ServingSuggestion.DeleteConfirm"] = "Are you sure you want to delete this serving suggestion?",
             ["Plugins.Misc.ServingSuggestions.Added"] = "The serving suggestion has been added successfully.",

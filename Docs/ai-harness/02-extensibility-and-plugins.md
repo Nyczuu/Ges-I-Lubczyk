@@ -23,6 +23,28 @@ Does it require changing behavior of the engine itself (DI container, migration 
   → STOP. Confirm with a human first. This is core-modification territory.
 ```
 
+## Extending an existing plugin vs. adding a new plugin that depends on it
+
+Applies once a plugin already exists (e.g. `Nop.Plugin.Misc.Ingredients`) and a new capability
+touches the same data.
+
+```
+Does the new data belong to the SAME entity, always needed together with what's already there,
+with no independent install/uninstall lifecycle of its own (e.g. calories per ingredient)?
+  → Extend the existing plugin: new column via a schema migration on its own entity.
+
+Does the new capability have an independent lifecycle - could be installed, uninstalled, or rolled
+back on its own without breaking the plugin it reads from (e.g. a "calorie total" widget on the
+product page, built on top of the ingredient list)?
+  → New plugin. Reference the owning plugin's PUBLIC service interface only (e.g.
+    `IIngredientService`) via ProjectReference - never its internals, never its repository/DbContext
+    directly.
+```
+
+Rule of thumb: uninstalling the new (dependent) plugin must leave the plugin it depends on fully
+functional. Uninstalling the depended-on plugin while the dependent one stays installed must degrade
+gracefully (empty/null reads), not throw.
+
 ## Writing a new plugin — required steps in order
 
 1. Create `src/Plugins/Nop.Plugin.{Group}.{Name}` class library, target `net10.0` to match the
@@ -47,7 +69,10 @@ Does it require changing behavior of the engine itself (DI container, migration 
    `[Area(AreaNames.ADMIN)]`, `[AuthorizeAdmin]`, `[AutoValidateAntiforgeryToken]`) +
    `Views/Configure.cshtml` (`_ConfigurePlugin` layout) + a `RouteProvider : IRouteProvider` +
    `{Name}Defaults.Route.Configuration` constant. Wire `BasePlugin.GetConfigurationPageUrl()` via
-   `INopUrlHelper`.
+   `INopUrlHelper`. **Every `return View(...)` in that controller needs the explicit
+   `~/Plugins/{Group}.{Name}/...` virtual path** — this codebase has no view-location expander for
+   plugin views, so the bare `View(model)` convention compiles but never resolves at runtime; see the
+   `admin-ui-standards-check` checklist.
 7. If the plugin needs an admin menu entry: subscribe to `AdminMenuCreatedEvent` via
    `IConsumer<AdminMenuCreatedEvent>` and call `eventMessage.RootMenuItem.InsertBefore(...)` guarded
    by a permission check. **Never** edit a sitemap/config file — that's the pre-4.80 mechanism and
