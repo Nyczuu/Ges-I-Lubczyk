@@ -24,8 +24,10 @@ What is in, and explicitly what is out. Which plugin(s) this creates or extends 
 
 ## 3. Task breakdown
 
-One line per child Task with its ID and directory. A Spike belongs here too if the Epic needs an
-investigation before its Tasks can be specified.
+One line per child Task with its ID and directory. Child IDs are epic-scoped —
+`GIL-<this-epic-n>-<nn>` (`GIL-010-01`, `GIL-010-02`, ...), not new top-level numbers — see
+[`README.md`](README.md). A Spike belongs here too if the Epic needs an investigation before its Tasks
+can be specified.
 
 ## 4. Cross-cutting constraints
 

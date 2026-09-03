@@ -17,9 +17,12 @@ external tracker, so nothing about the request survives that is not written here
 
 1. **Establish the kind and the ID.** Task, Epic, Spike, or Initiative — ask if it is not obvious from
    the request; the four have different checklists and `spec-intake` needs to be told which. The `<ID>`
-   is the developer's to assign (`GIL-<n>`); ask rather than inventing one. Slug is kebab-case.
+   is the developer's to assign; ask rather than inventing one. Slug is kebab-case.
 
-   An Epic's children live in nested directories under it — see
+   A standalone ticket takes the next `GIL-<n>` from the one repo-wide sequence. A Task or Spike nested
+   under an Epic instead takes `GIL-<epic-n>-<nn>` (epic-scoped, two-digit, sequential within that
+   Epic) — never a new top-level number, so it can't collide with a standalone ID another session
+   assigns concurrently. An Epic's children live in nested directories under it — see
    [`Docs/Specs/README.md`](../../../Docs/Specs/README.md).
 
 2. **Write the first draft** from the matching `Docs/Specs/TEMPLATE-<kind>.md` plus everything the user

@@ -77,29 +77,32 @@ is explicitly out of scope (Section 2) and is not a precondition for closing thi
 
 ## 3. Task breakdown
 
-Proposed — IDs and slugs to be confirmed before child specs are written:
+Proposed — epic-scoped IDs per [`Docs/Specs/README.md`](../README.md) (never a new top-level `GIL-<n>`,
+which could collide with a standalone ticket assigned concurrently by another session — as happened
+during this Epic's own drafting, when `GIL-004` was independently claimed by an unrelated standalone
+Task before this list was corrected):
 
-- `GIL-004` — Theme scaffold, design tokens, header & footer restyle
-- `GIL-005` — Homepage brand-story content (hero + "Dlaczego weki" + "Czysty skład" sections)
-- `GIL-006` — Catalog & product listing restyle (product box, category navigation)
-- `GIL-007` — Product details restyle, including styling the Ingredients and ServingSuggestions plugin
-  output and their new locale resources
-- `GIL-008` — Mini-cart restyle
+- `GIL-003-01` — Theme scaffold, design tokens, header & footer restyle
+- `GIL-003-02` — Homepage brand-story content (hero + "Dlaczego weki" + "Czysty skład" sections)
+- `GIL-003-03` — Catalog & product listing restyle (product box, category navigation)
+- `GIL-003-04` — Product details restyle, including styling the Ingredients and ServingSuggestions
+  plugin output and their new locale resources
+- `GIL-003-05` — Mini-cart restyle
 
 ## 4. Cross-cutting constraints
 
 - **Theme identity:** `SystemName: GesILubczyk`, `FriendlyName: Gęś i Lubczyk`. One theme, copied from
   `DefaultClean`, not a fork of shared layouts.
 - **CSS approach:** hand-authored CSS custom properties and selectors, split across one file per child
-  Task instead of one shared stylesheet, so `GIL-005`–`GIL-008` can land in parallel without overlapping
-  edits to the same file:
-  - `Content/css/tokens.css` — `GIL-004`, the design tokens below plus `@font-face` rules. Every other
-    file only consumes these custom properties, never redefines a color or font.
-  - `Content/css/header-footer.css` — `GIL-004`.
-  - `Content/css/home.css` — `GIL-005`.
-  - `Content/css/catalog.css` — `GIL-006`.
-  - `Content/css/product-details.css` — `GIL-007`.
-  - `Content/css/mini-cart.css` — `GIL-008`.
+  Task instead of one shared stylesheet, so `GIL-003-02`–`GIL-003-05` can land in parallel without
+  overlapping edits to the same file:
+  - `Content/css/tokens.css` — `GIL-003-01`, the design tokens below plus `@font-face` rules. Every
+    other file only consumes these custom properties, never redefines a color or font.
+  - `Content/css/header-footer.css` — `GIL-003-01`.
+  - `Content/css/home.css` — `GIL-003-02`.
+  - `Content/css/catalog.css` — `GIL-003-03`.
+  - `Content/css/product-details.css` — `GIL-003-04`.
+  - `Content/css/mini-cart.css` — `GIL-003-05`.
 
   All registered through `NopHtml.AppendCssFileParts` in the theme's `Head.cshtml`, `tokens.css` first.
   No Tailwind CDN script and no new client-side CSS build pipeline are introduced by this Epic — the
@@ -116,7 +119,7 @@ Proposed — IDs and slugs to be confirmed before child specs are written:
     a hex value or font-family string outside `tokens.css`.
 - **Font hosting:** self-hosted `.woff2` files under the theme's `Content/fonts/`, loaded via
   `@font-face` in the theme's own stylesheet — no external Google Fonts request at runtime.
-- **Content-plugin ownership stays put:** GIL-007 styles and relabels the existing `Ingredients` and
+- **Content-plugin ownership stays put:** GIL-003-04 styles and relabels the existing `Ingredients` and
   `ServingSuggestions` plugins' output in their existing widget zones; it does not create competing
   view components or move their data model.
 - **No hardcoded strings:** every user-facing string introduced by this Epic goes through locale
@@ -126,11 +129,12 @@ Proposed — IDs and slugs to be confirmed before child specs are written:
 
 ## 5. Sequencing & dependencies
 
-1. `GIL-004` (theme scaffold + tokens + header/footer) lands first — every other Task depends on the
+1. `GIL-003-01` (theme scaffold + tokens + header/footer) lands first — every other Task depends on the
    theme existing and the palette/font tokens being defined once, in one place.
-2. `GIL-005`, `GIL-006`, `GIL-007`, `GIL-008` each depend only on `GIL-004` and are independent of each
-   other — they touch disjoint pages/components, and thanks to the per-Task CSS file split in Section 4
-   they also touch disjoint files, so they can proceed and merge in parallel once `GIL-004` merges.
+2. `GIL-003-02`, `GIL-003-03`, `GIL-003-04`, `GIL-003-05` each depend only on `GIL-003-01` and are
+   independent of each other — they touch disjoint pages/components, and thanks to the per-Task CSS
+   file split in Section 4 they also touch disjoint files, so they can proceed and merge in parallel
+   once `GIL-003-01` merges.
 
 ## 6. Data & migration strategy across the Epic
 

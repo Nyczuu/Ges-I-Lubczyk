@@ -8,16 +8,22 @@ The spec file **is** the ticket. There is no external tracker — `Docs/Specs/` 
 Docs/Specs/
 ├── TEMPLATE-task.md · TEMPLATE-epic.md · TEMPLATE-spike.md · TEMPLATE-initiative.md
 ├── GIL-001-batch-tracking/
-│   └── spec.md                     standalone Task
-└── GIL-010-gastronomy-compliance/  Epic
-    ├── spec.md                     the Epic itself
-    ├── GIL-011-product-batch-entity/spec.md
-    └── GIL-012-expiring-soon-report/spec.md
+│   └── spec.md                          standalone Task
+└── GIL-010-gastronomy-compliance/        Epic
+    ├── spec.md                           the Epic itself
+    ├── GIL-010-01-product-batch-entity/spec.md
+    └── GIL-010-02-expiring-soon-report/spec.md
 ```
 
-- **ID:** `GIL-<n>`, assigned by the developer. Sequential, never reused.
+- **ID:** `GIL-<n>` for a standalone Task, Epic, Spike, or Initiative — assigned by the developer from
+  one repo-wide sequence, sequential, never reused. A Task or Spike nested under an Epic does **not**
+  take the next number from that sequence; it takes `GIL-<epic-n>-<nn>` instead (two-digit, sequential
+  within the Epic — `GIL-010-01`, `GIL-010-02`, ...). This keeps an Epic's own child numbering
+  independent of the top-level counter, so a standalone ticket assigned concurrently by another session
+  can never collide with an Epic child's ID (or vice versa).
 - **Slug:** short kebab-case summary of the ticket.
-- **Epic:** a directory whose own `spec.md` is the Epic; child Tasks are nested directories.
+- **Epic:** a directory whose own `spec.md` is the Epic; child Tasks are nested directories named
+  `GIL-<epic-n>-<nn>-<slug>`.
 
 ## Frontmatter — required on every spec
 
@@ -28,6 +34,18 @@ kind: Task            # Task | Epic | Spike | Initiative
 title: Track product batch and best-before date
 status: Draft         # Draft | Ready | In Progress | Shipped
 parent: GIL-010       # omit for a standalone ticket
+---
+```
+
+An Epic child's own `id` uses the epic-scoped form, `parent` still names the Epic's own ID:
+
+```yaml
+---
+id: GIL-010-01
+kind: Task
+title: Product batch entity
+status: Draft
+parent: GIL-010
 ---
 ```
 

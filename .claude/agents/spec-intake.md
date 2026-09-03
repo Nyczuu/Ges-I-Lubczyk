@@ -71,7 +71,9 @@ These apply to every kind; the per-kind lists below reference them rather than r
 ## B/C. Initiative & Epic checklist
 
 1. S1, S2.
-2. **Breakdown** — child Epics (Initiative) or child Tasks and Spikes (Epic), each identified.
+2. **Breakdown** — child Epics (Initiative) or child Tasks and Spikes (Epic), each identified with an
+   epic-scoped ID (`GIL-<epic-n>-<nn>`, per `Docs/Specs/README.md`) rather than a new top-level `GIL-<n>`
+   that could collide with a standalone ticket assigned concurrently by another session.
 3. **Cross-cutting constraints that must hold identically across children** — entity ownership, schema
    shape, permission naming, locale key prefix, cache key prefix, plugin `SystemName`. These are the
    contracts `task-decomposer` freezes between units; if they are absent, each child invents its own
