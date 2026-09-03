@@ -441,3 +441,144 @@ design end to end: dropped the unsafe `NotEmpty`-style required validator rule (
 mechanism, confirmed the single-statement `NOT NULL DEFAULT 0` migration sequencing against core's own
 `Product.AgeVerification` precedent, and added the four missing `.GreaterThanOrEqualZero` locale keys.
 Final design (Pass 1 + Pass 2 corrections) approved as a whole.
+
+## Implementation plan (implementation-planner)
+
+File-by-file plan, mirroring named precedents throughout — no further domain decisions, the approved
+two-pass design above is fully determined for every file below.
+
+### New
+
+**`Data/Migrations/NutritionalValuesMigration.cs`** — mirrors `Nop.Plugin.Misc.Zettle/Data/InventoryBalanceMigration.cs`
+(shape/attribute/`MigrationProcessType.Update`), `Nop.Plugin.Widgets.FacebookPixel/Data/ConversionsApiMigration.cs`
+(schema-alter + `AddOrUpdateLocaleResource` in one `Up()`), and `Nop.Data/Migrations/UpgradeTo490/SchemaMigration.cs:18-21`
+(`.AsX().NotNullable().WithDefaultValue(v)` chain shape):
+
+```csharp
+[NopMigration("2026-09-03 00:00:00", "Nop.Plugin.Misc.Ingredients nutritional values", MigrationProcessType.Update)]
+public class NutritionalValuesMigration : MigrationBase
+{
+    public override void Up()
+    {
+        if (!DataSettingsManager.IsDatabaseInstalled())
+            return;
+
+        this.AddOrAlterColumnFor<Ingredient>(x => x.CaloriesPer100g).AsDecimal(18, 4).NotNullable().WithDefaultValue(0);
+        this.AddOrAlterColumnFor<Ingredient>(x => x.ProteinPer100g).AsDecimal(18, 4).NotNullable().WithDefaultValue(0);
+        this.AddOrAlterColumnFor<Ingredient>(x => x.FatPer100g).AsDecimal(18, 4).NotNullable().WithDefaultValue(0);
+        this.AddOrAlterColumnFor<Ingredient>(x => x.CarbohydratePer100g).AsDecimal(18, 4).NotNullable().WithDefaultValue(0);
+
+        this.AddOrUpdateLocaleResource(new Dictionary<string, string>
+        {
+            ["Plugins.Misc.Ingredients.Fields.CaloriesPer100g"] = "Calories per 100g (kcal)",
+            ["Plugins.Misc.Ingredients.Fields.CaloriesPer100g.Hint"] = "The energy value of this ingredient, in kilocalories per 100g.",
+            ["Plugins.Misc.Ingredients.Fields.CaloriesPer100g.GreaterThanOrEqualZero"] = "Calories per 100g must be zero or greater.",
+            ["Plugins.Misc.Ingredients.Fields.ProteinPer100g"] = "Protein per 100g (g)",
+            ["Plugins.Misc.Ingredients.Fields.ProteinPer100g.Hint"] = "The protein content of this ingredient, in grams per 100g.",
+            ["Plugins.Misc.Ingredients.Fields.ProteinPer100g.GreaterThanOrEqualZero"] = "Protein per 100g must be zero or greater.",
+            ["Plugins.Misc.Ingredients.Fields.FatPer100g"] = "Fat per 100g (g)",
+            ["Plugins.Misc.Ingredients.Fields.FatPer100g.Hint"] = "The fat content of this ingredient, in grams per 100g.",
+            ["Plugins.Misc.Ingredients.Fields.FatPer100g.GreaterThanOrEqualZero"] = "Fat per 100g must be zero or greater.",
+            ["Plugins.Misc.Ingredients.Fields.CarbohydratePer100g"] = "Carbohydrate per 100g (g)",
+            ["Plugins.Misc.Ingredients.Fields.CarbohydratePer100g.Hint"] = "The carbohydrate content of this ingredient, in grams per 100g.",
+            ["Plugins.Misc.Ingredients.Fields.CarbohydratePer100g.GreaterThanOrEqualZero"] = "Carbohydrate per 100g must be zero or greater."
+        });
+    }
+
+    public override void Down()
+    {
+        //nothing - forward-only
+    }
+}
+```
+English copy above is implementer-authored (design fixed only the key names) — free to adjust wording
+without a re-approval cycle, not a domain decision.
+
+### Changed
+
+- **`Domain/Ingredient.cs`** — four plain, non-nullable `decimal` properties (`CaloriesPer100g`,
+  `ProteinPer100g`, `FatPer100g`, `CarbohydratePer100g`), placed after `Allergen`/`AllergenId`, before
+  `CreatedOnUtc`.
+- **`plugin.json`** — `"Version"`: `"5.00.1"` → `"5.00.2"`.
+- **`IngredientsPlugin.cs`** — same 12 locale keys added to `InstallAsync`'s
+  `AddOrUpdateLocaleResourceAsync` dictionary (dual-path seeding: this covers a fresh install, the
+  migration above covers a store upgrading from GIL-001). `UninstallAsync` unchanged — its existing
+  prefix delete already covers these keys.
+- **`Admin/Models/IngredientModel.cs`** — add `using System.ComponentModel.DataAnnotations;`; four
+  properties on `IngredientModel` (not `IngredientLocalizedModel`), after `AllergenId`:
+  ```csharp
+  [NopResourceDisplayName("Plugins.Misc.Ingredients.Fields.CaloriesPer100g")]
+  [UIHint("Decimal")]
+  public decimal CaloriesPer100g { get; set; }
+  // + ProteinPer100g, FatPer100g, CarbohydratePer100g, same shape
+  ```
+  Mirrors `Nop.Plugin.Misc.RFQ/Models/Customer/RequestQuoteItemModel.cs`'s `UnitPrice` (plain `decimal` +
+  `[UIHint("Decimal")]`, not `DecimalNullable`).
+- **`Admin/Validators/IngredientValidator.cs`** — four range rules before the existing
+  `SetDatabaseValidationRules<Ingredient>()` call, mirroring `VendorValidator.cs:34-37`'s `PriceFrom`
+  rule:
+  ```csharp
+  RuleFor(model => model.CaloriesPer100g)
+      .GreaterThanOrEqualTo(0)
+      .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Misc.Ingredients.Fields.CaloriesPer100g.GreaterThanOrEqualZero"));
+  // + ProteinPer100g, FatPer100g, CarbohydratePer100g, same shape
+  ```
+  No `NotEmpty`/`NotNull` rule — confirmed dead/harmful for this value type in the approved design.
+- **`Admin/Views/_CreateOrUpdate.Info.cshtml`** — four `form-group row` blocks after the existing
+  `AllergenId` block:
+  ```cshtml
+  <div class="form-group row">
+      <div class="col-md-3">
+          <nop-label asp-for="CaloriesPer100g" />
+      </div>
+      <div class="col-md-9">
+          <nop-editor asp-for="CaloriesPer100g" asp-required="true" />
+          <span asp-validation-for="CaloriesPer100g"></span>
+      </div>
+  </div>
+  ```
+  (×4). Already a `<Content Include>` item in the `.csproj` — content edit, not a new file.
+- **`Docs/BusinessLogic/product-ingredients.md`** — new "Nutritional values" section between the existing
+  "Allergen classification" and "Deletion is blocked while in use" sections: the four required per-100g
+  fields, real schema column (not `GenericAttribute`), pre-GIL-004 rows backfill to `0` via the migration
+  (technical default, not a business claim), admin-only in this task (no storefront/recipe-aggregation
+  surface yet).
+
+### Confirmed — no change needed
+
+`Data/Mapping/Builders/IngredientBuilder.cs` (auto-map path already yields `AsDecimal(18,4) NOT NULL` for
+an unconfigured plain `decimal`), `Infrastructure/MapperConfiguration.cs` (convention-based mapping,
+already round-trips identically-named properties), `Admin/Controllers/IngredientsAdminController.cs`
+(`ToEntity`/`ToModel`, no manual field assignment), `Admin/Factories/IngredientAdminModelFactory.cs`
+(same), `IngredientLocalizedModel` (fields not localized, spec §6), `.csproj` (no new content files, `.cs`
+compiles via SDK-style default globbing).
+
+### Order of work
+
+1. `Domain/Ingredient.cs` → 2. `Data/Migrations/NutritionalValuesMigration.cs` → 3. `plugin.json` →
+4. `IngredientsPlugin.cs` → 5. `IngredientModel.cs` → 6. `IngredientValidator.cs` →
+7. `_CreateOrUpdate.Info.cshtml` → 8. `Docs/BusinessLogic/product-ingredients.md` → 9. tests alongside
+steps 1/5/6, not after.
+
+### Tests
+
+- `Nop.Tests.Nop.Services.Tests/Ingredients/IngredientServiceTests.cs` — new round-trip test inserting an
+  `Ingredient` with all four fields set (including a genuine `0` case, e.g. water), reload, assert exact
+  values; mirrors the file's own `InsertIngredientAsync_SeedsAReflexiveClosureRow` shape.
+- New `Nop.Tests.Nop.Services.Tests/Ingredients/IngredientValidatorTests.cs`, mirroring
+  `ServingSuggestionValidatorTests.cs` (`ServiceTest` base, AwesomeAssertions, one `[Test]` per scenario):
+  `Validate_Fails_When{Field}IsNegative` ×4, `Validate_Succeeds_WhenAllNutritionalValuesAreZero`.
+- **Not separately tested, by design/precedent:** blank-field-rejected (framework model-binding +
+  `NotNullValidationMessageAttribute` mechanism — same as `ProductModel.Price`, untested anywhere in this
+  repo either) and the migration body itself (`MigrationProcessType.Update` migrations never execute in
+  `ServiceTest.InitPlugins()`, confirmed no precedent in this codebase tests a migration body directly —
+  schema correctness is exercised through the service round-trip test instead).
+
+### Standards skills to load during implementation
+
+`data-access-standards-check`, `migration-standards-check`, `localization-standards-check`,
+`admin-ui-standards-check`, `testing-standards-check`.
+
+**Approved by:** Mateusz Nycz
+**Date:** 2026-09-03
+**Revision notes:** none — approved as proposed.
