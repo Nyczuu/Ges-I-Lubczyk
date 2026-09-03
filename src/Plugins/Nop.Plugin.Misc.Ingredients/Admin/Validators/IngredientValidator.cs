@@ -17,8 +17,28 @@ public class IngredientValidator : BaseNopValidator<IngredientModel>
             .NotEmpty()
             .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Misc.Ingredients.Fields.Name.Required"));
 
-        //max-length rule for Name (400, per IngredientBuilder) is added automatically below,
-        //from the entity's own column metadata
+        //no NotEmpty/NotNull rule here for the four nutritional fields: they are plain (non-nullable)
+        //decimal properties, so an empty form submission already fails ASP.NET Core model binding before
+        //this validator ever runs (same mechanism as ProductModel.Price) - "required" is enforced
+        //structurally, not by a rule that would also reject a genuine 0 (water, salt)
+        RuleFor(model => model.CaloriesPer100g)
+            .GreaterThanOrEqualTo(0)
+            .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Misc.Ingredients.Fields.CaloriesPer100g.GreaterThanOrEqualZero"));
+
+        RuleFor(model => model.ProteinPer100g)
+            .GreaterThanOrEqualTo(0)
+            .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Misc.Ingredients.Fields.ProteinPer100g.GreaterThanOrEqualZero"));
+
+        RuleFor(model => model.FatPer100g)
+            .GreaterThanOrEqualTo(0)
+            .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Misc.Ingredients.Fields.FatPer100g.GreaterThanOrEqualZero"));
+
+        RuleFor(model => model.CarbohydratePer100g)
+            .GreaterThanOrEqualTo(0)
+            .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Misc.Ingredients.Fields.CarbohydratePer100g.GreaterThanOrEqualZero"));
+
+        //max-length rule for Name (400, per IngredientBuilder) and upper-bound rules for the four
+        //nutritional fields (from their AsDecimal(18, 4) column metadata) are added automatically below
         SetDatabaseValidationRules<Ingredient>();
     }
 }
