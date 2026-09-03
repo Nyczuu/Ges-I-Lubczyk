@@ -1,0 +1,147 @@
+---
+id: GIL-003
+kind: Epic
+title: Storefront theme reskin to Gęś i Lubczyk brand
+status: Ready
+---
+
+# Epic — Storefront theme reskin to Gęś i Lubczyk brand
+
+A group of related Tasks delivering one coherent capability. Each child Task gets its own directory
+under this one, with its own `spec.md` from [`TEMPLATE-task.md`](../TEMPLATE-task.md). Mirrors the Epic
+checklist in `.claude/agents/spec-intake.md`.
+
+## 1. Business goal & outcome
+
+The storefront currently runs the stock `DefaultClean` theme with no brand identity. The developer
+produced an approved visual mockup, preserved verbatim at
+[`mockup-reference.html`](mockup-reference.html) (static HTML/Tailwind, single file), expressing the
+intended brand: a herbal/artisanal look (sage-green, clay, gold palette; Fraunces + Plus Jakarta Sans
+typography) themed around the "Gęś i Lubczyk" jarred-food brand. Each child Task's `ddd-modeler` step
+consults this file directly for exact markup, spacing and copy — not just the extracted colors and
+font names in Section 4.
+
+Outcome: a new nopCommerce theme, installed and active, that gives every real customer-facing storefront
+page (home, catalog, product details, cart) the mockup's look — built on nopCommerce's actual catalog,
+cart and product mechanisms, not the mockup's static fake product array and client-only cart state.
+
+Success is verified by: browsing the live site with the new theme active and finding the home page,
+a category listing, a product details page, and the mini-cart visually matching the mockup's palette,
+typography and layout language. Acceptance uses whatever product/category data exists in the store at
+the time (nopCommerce's own sample/demo catalog is sufficient) — populating real "Gęś i Lubczyk" products
+is explicitly out of scope (Section 2) and is not a precondition for closing this Epic.
+
+## 2. Scope & boundaries
+
+**In scope**
+
+- One new theme (`Content/`, `Views/Shared` overrides), copied from `DefaultClean` per
+  `theming-standards-check`'s "New theme" checklist, carrying the mockup's palette and typography as
+  reusable tokens.
+- Header (top announcement bar, logo, nav, cart button) and footer restyle — footer is a sanctioned
+  direct-edit per the theming checklist.
+- Homepage hero and brand-story content (mockup's "Dlaczego weki" / "Czysty skład" sections) delivered
+  through a real nopCommerce content mechanism (Topic, widget zone, or similar — the exact mechanism is
+  a `ddd-modeler` decision for that child Task, not fixed here).
+- Catalog / category listing restyle: product box card matching the mockup, using real category
+  navigation instead of the mockup's client-side category filter buttons.
+- Product details page restyle, including styling the two already-existing content plugins so their
+  output matches the mockup's per-product panels:
+  - `Nop.Plugin.Misc.Ingredients` → its `IngredientsViewComponent` output (`.product-ingredients`,
+    rendered into `PublicWidgetZones.ProductDetailsBeforeCollateral`) styled as the mockup's
+    "Pełna Etykieta" panel.
+  - `Nop.Plugin.Misc.ServingSuggestions` → its `ServingSuggestionViewComponent` output
+    (`.product-serving-suggestion`, rendered into `PublicWidgetZones.ProductDetailsBottom`) styled as
+    the mockup's "Komentarz Joanny Nycz" panel.
+  - New Polish locale resources for both plugins' block titles/labels (currently generic English
+    strings) — added to those plugins' existing locale resources, not a new duplicate view component.
+- Mini-cart restyle to match the mockup's slide-over drawer, built on the real cart mechanism already
+  in this nopCommerce build (confirm during the relevant child Task whether that is `FlyoutCart` or
+  another mechanism — not assumed here).
+- Fraunces and Plus Jakarta Sans web fonts, self-hosted and registered through `NopHtml`, replacing the
+  mockup's Google Fonts CDN `<link>`.
+
+**Out of scope**
+
+- Product catalog data entry — the mockup's six example dishes (names, prices, descriptions,
+  ingredients) are placeholder content for the visual design. Populating real products is store-owner
+  content work done in Admin, not part of this Epic, unless a later decision says otherwise.
+- The mockup's quick-view interaction (clicking "Skład i notatki z kuchni Joanny →" on a listing card
+  opens ingredients/serving-suggestion in a popup without navigating away). Default assumption: this
+  Epic keeps nopCommerce's normal pattern of navigating to the full product details page. A JS
+  quick-view/modal pattern is a separate, explicitly-scoped future task if wanted.
+- Checkout, account pages, admin UI, and any storefront page the mockup does not depict — these keep
+  the current theme's look unless a child Task states otherwise.
+- Reimplementing cart logic — the real cart/basket endpoints are restyled, not replaced with the
+  mockup's client-only cart-state JavaScript.
+
+## 3. Task breakdown
+
+Proposed — IDs and slugs to be confirmed before child specs are written:
+
+- `GIL-004` — Theme scaffold, design tokens, header & footer restyle
+- `GIL-005` — Homepage brand-story content (hero + "Dlaczego weki" + "Czysty skład" sections)
+- `GIL-006` — Catalog & product listing restyle (product box, category navigation)
+- `GIL-007` — Product details restyle, including styling the Ingredients and ServingSuggestions plugin
+  output and their new locale resources
+- `GIL-008` — Mini-cart restyle
+
+## 4. Cross-cutting constraints
+
+- **Theme identity:** `SystemName: GesILubczyk`, `FriendlyName: Gęś i Lubczyk`. One theme, copied from
+  `DefaultClean`, not a fork of shared layouts.
+- **CSS approach:** hand-authored CSS custom properties and selectors, split across one file per child
+  Task instead of one shared stylesheet, so `GIL-005`–`GIL-008` can land in parallel without overlapping
+  edits to the same file:
+  - `Content/css/tokens.css` — `GIL-004`, the design tokens below plus `@font-face` rules. Every other
+    file only consumes these custom properties, never redefines a color or font.
+  - `Content/css/header-footer.css` — `GIL-004`.
+  - `Content/css/home.css` — `GIL-005`.
+  - `Content/css/catalog.css` — `GIL-006`.
+  - `Content/css/product-details.css` — `GIL-007`.
+  - `Content/css/mini-cart.css` — `GIL-008`.
+
+  All registered through `NopHtml.AppendCssFileParts` in the theme's `Head.cshtml`, `tokens.css` first.
+  No Tailwind CDN script and no new client-side CSS build pipeline are introduced by this Epic — the
+  mockup's Tailwind CDN usage is a prototyping tool, not a decision that carries into the theme.
+- **Design tokens** (fixed for every child Task, sourced from the mockup's `tailwind.config`, exposed as
+  CSS custom properties with the `--gil-` prefix defined once in `tokens.css`):
+  - Colors — `--gil-color-sage: #455E4F`, `--gil-color-sage-light: #597564`,
+    `--gil-color-sage-soft: #E8EEE9`, `--gil-color-leaf: #8BA593`, `--gil-color-cream: #FCFAF6`,
+    `--gil-color-linen: #F6F2EB`, `--gil-color-linen-dark: #E9E2D5`, `--gil-color-clay: #C57056`,
+    `--gil-color-gold: #CD9752`, `--gil-color-ink: #2A332E`, `--gil-color-muted: #68776F`.
+  - Fonts — `--gil-font-serif: 'Fraunces', serif` (headings), `--gil-font-sans: 'Plus Jakarta Sans',
+    sans-serif` (body).
+  - Every child Task references these variables (e.g. `color: var(--gil-color-sage)`); none hardcodes
+    a hex value or font-family string outside `tokens.css`.
+- **Font hosting:** self-hosted `.woff2` files under the theme's `Content/fonts/`, loaded via
+  `@font-face` in the theme's own stylesheet — no external Google Fonts request at runtime.
+- **Content-plugin ownership stays put:** GIL-007 styles and relabels the existing `Ingredients` and
+  `ServingSuggestions` plugins' output in their existing widget zones; it does not create competing
+  view components or move their data model.
+- **No hardcoded strings:** every user-facing string introduced by this Epic goes through locale
+  resources, per `localization-standards-check` — including the two plugins' new block-title resources.
+- **No new client-side cart/product state:** "add to cart", quantities, and totals go through the real
+  nopCommerce cart endpoints; no reimplementation of the mockup's in-memory JS cart or product array.
+
+## 5. Sequencing & dependencies
+
+1. `GIL-004` (theme scaffold + tokens + header/footer) lands first — every other Task depends on the
+   theme existing and the palette/font tokens being defined once, in one place.
+2. `GIL-005`, `GIL-006`, `GIL-007`, `GIL-008` each depend only on `GIL-004` and are independent of each
+   other — they touch disjoint pages/components, and thanks to the per-Task CSS file split in Section 4
+   they also touch disjoint files, so they can proceed and merge in parallel once `GIL-004` merges.
+
+## 6. Data & migration strategy across the Epic
+
+N/A — reason: this is a presentation-layer Epic. No new entities or schema changes. The two content
+plugins' schemas already shipped in GIL-001 and GIL-002. Any new locale resources for block titles are
+additive `AddOrUpdatePluginLocaleResource` calls within those plugins' existing install/update paths,
+not a new migration.
+
+## 7. Deployment & rollout strategy
+
+Default assumption: ship as one theme switch in Admin → Configuration → Themes once all child Tasks
+have merged, so customers never see a half-styled site. No Dockerfile, appsettings, or ECS task
+definition changes — theme files ship in the same image as today, per
+[`ai-harness/04-deployment-aws-ecs.md`](../../ai-harness/04-deployment-aws-ecs.md).

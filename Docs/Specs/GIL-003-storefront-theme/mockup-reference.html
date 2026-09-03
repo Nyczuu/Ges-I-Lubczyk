@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gęś i Lubczyk | Rzemieślnicza Wekownia Joanny Nycz</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN z dopasowaną subtelną paletą ziołową -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        herbal: {
+                            sage: '#455E4F',         /* Subtelna zieleń lubczykowa */
+                            sageLight: '#597564',    /* Jaśniejsza zieleń akcentowa */
+                            sageSoft: '#E8EEE9',     /* Bardzo delikatne tło ziołowe */
+                            leaf: '#8BA593',         /* Pastelowy liść */
+                            cream: '#FCFAF6',        /* Ciepłe mleczne tło */
+                            linen: '#F6F2EB',        /* Naturalny len */
+                            linenDark: '#E9E2D5',    /* Kontur i podziały */
+                            clay: '#C57056',         /* Ciepła terakota */
+                            gold: '#CD9752',         /* Złocisty miód / mosiądz */
+                            ink: '#2A332E',          /* Zmiękczona czerń / grafit */
+                            muted: '#68776F'         /* Stonowany opis */
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['Fraunces', 'serif'],
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-panel {
+            background: rgba(246, 242, 235, 0.92);
+            backdrop-filter: blur(10px);
+        }
+        ::-webkit-scrollbar {
+            width: 7px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F6F2EB;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #8BA593;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-herbal-linen text-herbal-ink font-sans antialiased selection:bg-herbal-sage selection:text-white min-h-screen flex flex-col">
+
+    <!-- Pasek intencji i świeżej partii -->
+    <div class="bg-herbal-sage text-herbal-cream text-xs md:text-sm py-2.5 px-4 text-center tracking-wide font-medium flex items-center justify-center gap-2 border-b border-herbal-sageLight/40">
+        <span class="inline-block w-2 h-2 rounded-full bg-herbal-gold animate-pulse"></span>
+        Partia rzemieślnicza nr 14/2026: Gotowane ręcznie przez Joannę Nycz • Darmowa dostawa chłodnicza od 190 zł
+    </div>
+
+    <!-- Główna Nawigacja -->
+    <header class="sticky top-0 z-40 glass-panel border-b border-herbal-linenDark/80 transition-all">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+
+            <!-- Logo & Sygnatura -->
+            <a href="#" class="flex items-center gap-3.5 group">
+                <div class="w-11 h-11 rounded-full bg-herbal-sageSoft border border-herbal-leaf/40 text-herbal-sage flex items-center justify-center font-serif font-bold text-lg shadow-inner group-hover:scale-105 transition-transform">
+                    G&L
+                </div>
+                <div>
+                    <span class="font-serif text-xl sm:text-2xl font-bold tracking-tight text-herbal-sage block leading-none">Gęś i Lubczyk</span>
+                    <span class="text-[10px] tracking-wider uppercase font-semibold text-herbal-muted block mt-0.5">Rzemieślnicza Wekownia • Joanna Nycz</span>
+                </div>
+            </a>
+
+            <!-- Menu nawigacji -->
+            <nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-herbal-sageLight">
+                <a href="#menu" class="hover:text-herbal-sage transition-colors">Karta Weków</a>
+                <a href="#dlaczego-weki" class="hover:text-herbal-sage transition-colors">Nasza Misja & Weki</a>
+                <a href="#filozofia" class="hover:text-herbal-sage transition-colors">Czysty Skład</a>
+                <a href="#kuchnia" class="hover:text-herbal-sage transition-colors">O Joannie Nycz</a>
+            </nav>
+
+            <!-- Przycisk Koszyka -->
+            <div class="flex items-center gap-4">
+                <button id="cartBtn" class="relative flex items-center gap-2 bg-herbal-sage hover:bg-herbal-sageLight text-herbal-cream px-4 sm:px-5 py-2.5 rounded-full font-semibold text-sm transition-all shadow-sm hover:shadow active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                    <span class="hidden sm:inline">Twoja Spiżarnia</span>
+                    <span id="cartCountBadge" class="bg-herbal-clay text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sekcja Hero -->
+    <section class="relative overflow-hidden py-12 lg:py-20 border-b border-herbal-linenDark/60">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid lg:grid-cols-12 gap-12 items-center">
+
+                <div class="lg:col-span-7 space-y-6">
+                    <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-herbal-sageSoft border border-herbal-leaf/30 text-herbal-sage font-medium text-xs tracking-wide">
+                        <span class="text-herbal-clay text-sm">✦</span>
+                        Tradycja wekowania powracająca na polskie stoły
+                    </div>
+
+                    <h1 class="font-serif text-4xl sm:text-5xl lg:text-[3.5rem] font-bold text-herbal-sage leading-[1.12] tracking-tight">
+                        Prawdziwy obiad to lekarstwo. <br>
+                        <span class="italic font-normal text-herbal-clay">Nie szybka kaloria.</span>
+                    </h1>
+
+                    <p class="text-base sm:text-lg text-herbal-muted max-w-xl leading-relaxed font-normal">
+                        Nazywam się Joanna Nycz. W „Gęsi i Lubczyku” zamykam w szklanych słojach esencję polskiej kuchni restauracyjnej: wolno redukowane buliony, szlachetną gęsinę, leśne zioła i warzywa z małych gospodarstw. Bez sztucznych dodatków, z szacunkiem do Twojego zdrowia.
+                    </p>
+
+                    <div class="flex flex-wrap items-center gap-4 pt-2">
+                        <a href="#menu" class="bg-herbal-sage hover:bg-herbal-sageLight text-white px-7 py-3.5 rounded-full font-semibold text-sm shadow-md transition-all hover:-translate-y-0.5">
+                            Odkryj Menu Słojów
+                        </a>
+                        <a href="#dlaczego-weki" class="flex items-center gap-2 px-6 py-3.5 rounded-full border border-herbal-sage/30 font-semibold text-herbal-sage hover:bg-herbal-sageSoft transition-colors text-sm">
+                            Dlaczego wekujemy? Przeczytaj nasz manifest
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                        </a>
+                    </div>
+
+                    <!-- Pigułki wartości -->
+                    <div class="grid grid-cols-3 gap-4 pt-6 border-t border-herbal-linenDark max-w-lg">
+                        <div>
+                            <span class="block font-serif text-xl sm:text-2xl font-bold text-herbal-sage">100%</span>
+                            <span class="text-xs text-herbal-muted">czysty skład (Clean Label)</span>
+                        </div>
+                        <div>
+                            <span class="block font-serif text-xl sm:text-2xl font-bold text-herbal-sage">16 godzin</span>
+                            <span class="text-xs text-herbal-muted">powolnego duszenia</span>
+                        </div>
+                        <div>
+                            <span class="block font-serif text-xl sm:text-2xl font-bold text-herbal-sage">Szkło</span>
+                            <span class="text-xs text-herbal-muted">i naturalna pasteryzacja</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zdjęcie kompozycji i wizytówka -->
+                <div class="lg:col-span-5 relative">
+                    <div class="relative mx-auto max-w-md lg:max-w-none">
+                        <div class="bg-herbal-cream p-4 rounded-3xl border border-herbal-linenDark shadow-xl relative overflow-hidden">
+                            <img src="https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&q=80&w=900" alt="Rzemieślnicze słoje Gęś i Lubczyk" class="w-full h-80 sm:h-96 object-cover rounded-2xl">
+
+                            <div class="absolute bottom-6 left-6 right-6 p-4 rounded-2xl glass-panel border border-white/70 shadow-md">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <span class="text-[11px] font-bold uppercase tracking-wider text-herbal-clay">Danie Autorskie Joanny Nycz</span>
+                                        <h4 class="font-serif font-bold text-herbal-sage text-sm sm:text-base">Gęś w Cydrze z Jabłkami i Lubczykiem</h4>
+                                    </div>
+                                    <span class="text-lg font-bold text-herbal-sage">48 zł</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ROZBUDOWANA SEKCJA: DLACZEGO WEKI? (Głębokie przemyślenia, pasja i misja Joanny Nycz) -->
+    <section id="dlaczego-weki" class="py-16 lg:py-24 bg-herbal-cream border-b border-herbal-linenDark relative">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <span class="text-xs uppercase font-bold tracking-widest text-herbal-clay mb-2 block">Manifest & Pasja</span>
+                <h2 class="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-herbal-sage leading-tight">
+                    Dlaczego właśnie weki? <br>
+                    <span class="italic font-normal text-herbal-ink/80 text-2xl sm:text-3xl">O misji powrotu do prawdziwego jedzenia</span>
+                </h2>
+                <div class="w-16 h-0.5 bg-herbal-clay mx-auto mt-6"></div>
+            </div>
+
+            <!-- List / Przemyślenia Joanny -->
+            <div class="grid md:grid-cols-12 gap-8 items-start">
+
+                <!-- Karta z portretem / cytatem -->
+                <div class="md:col-span-5 bg-herbal-linen p-6 sm:p-8 rounded-3xl border border-herbal-linenDark space-y-4">
+                    <div class="w-16 h-16 rounded-full bg-herbal-sageSoft flex items-center justify-center font-serif text-xl font-bold text-herbal-sage">
+                        JN
+                    </div>
+                    <blockquote class="font-serif italic text-base text-herbal-sage leading-relaxed">
+                        „Nie godzę się na to, by współczesny pośpiech skazywał nas na chemiczne zamienniki posiłków. Domowy stół to serce rodziny. Jeśli nie masz czasu stać przy garnkach 5 godzin – pozwól, że zrobię to za Ciebie.”
+                    </blockquote>
+                    <div class="pt-4 border-t border-herbal-linenDark/70">
+                        <span class="block font-bold text-herbal-sage text-sm">Joanna Nycz</span>
+                        <span class="text-xs text-herbal-muted">Szefowa i twórczyni wekowni „Gęś i Lubczyk”</span>
+                    </div>
+
+                    <div class="pt-2 text-xs text-herbal-sageLight space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 rounded-full bg-herbal-sage"></span>
+                            <span>Wyłącznie polskie rzemieślnicze surowce</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 rounded-full bg-herbal-sage"></span>
+                            <span>Naturalny bukiet świeżego lubczyku zamiast glutaminianu</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 rounded-full bg-herbal-sage"></span>
+                            <span>Tradycyjna tyndalizacja w szklanym słoju</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Główny esej / przemyślenia -->
+                <div class="md:col-span-7 space-y-6 text-herbal-ink/90 text-sm sm:text-base leading-relaxed">
+                    <p class="font-serif text-lg text-herbal-sage font-semibold">
+                        Żyjemy w czasach żywnościowego paradoksu: półki uginają się od kolorowych opakowań, a jednocześnie nasze organizmy nigdy nie były tak niedożywione i przemęczone ultraprzetworzoną dietą.
+                    </p>
+
+                    <p>
+                        Pamiętam kuchnię mojej prababci. W rogu kuchni zawsze pyrkał żeliwny kociołek. Czas płynął wolniej, a w powietrzu unosił się aromat palonej marchwi, lubczyku ogrodowego i powoli wytapianego tłuszczu z gęsi. W tamtym jedzeniu była **moc, odporność i poczucie bezpieczeństwa**. Nie było za to zagęszczaczy, barwników, sztucznych aromatów ani maltodekstryny.
+                    </p>
+
+                    <div class="bg-herbal-sageSoft/70 p-5 rounded-2xl border-l-4 border-herbal-sage space-y-2">
+                        <h4 class="font-bold text-herbal-sage text-sm uppercase tracking-wide">Nasza Główna Misja:</h4>
+                        <p class="text-xs sm:text-sm text-herbal-ink">
+                            **Chcemy przywrócić zdrowe, czyste jedzenie do polskich domów.** Zapewnić zapracowanym ludziom, rodzicom i pasjonatom dobrej kuchni poczucie, że po wyczerpującym dniu mogą otworzyć słoik i w 5 minut zjeść posiłek restauracyjnej klasy – bez grama chemii.
+                        </p>
+                    </div>
+
+                    <p>
+                        **Dlaczego słoik, a nie plastikowa tacka?** <br>
+                        Wekowanie to najszlachetniejszy, w 100% naturalny wynalazek konserwacji. Szklany słój jest neutralny dla zdrowia – nie wchodzi w reakcję z kwasami, nie uwalnia mikroplastiku ani bisfenoli. Zamknięte pod próżnią danie, poddane kontrolowanej temperaturze, zachowuje witaminy, głęboki kolagen z wywarów i autentyczną strukturę mięsa na całe miesiące.
+                    </p>
+
+                    <p class="text-xs sm:text-sm text-herbal-muted italic">
+                        Nazwa „Gęś i Lubczyk” to hołd dla tego, co w polskiej tradycji kulinarnej było najwartościowsze. Gęsina – bogata w nienasycone kwasy tłuszczowe i żelazo – oraz lubczyk, nasze rodzime zioło miłości i zdrowia, które wydobywa głębokie umami bez potrzeby sięgania po kostki rosołowe.
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Trzy filary wekowania -->
+            <div class="grid md:grid-cols-3 gap-6 mt-14 pt-12 border-t border-herbal-linenDark">
+                <div class="p-6 rounded-2xl bg-herbal-linen border border-herbal-linenDark">
+                    <span class="text-herbal-gold font-serif text-2xl font-bold block mb-2">01. Czas zamiast chemii</span>
+                    <h3 class="font-bold text-herbal-sage text-base mb-1">Głębia z redukcji</h3>
+                    <p class="text-xs text-herbal-muted leading-relaxed">Nie zagęszczamy sosów modyfikowaną skrobią. Gęstość i aksamitność to wynik wielogodzinnej redukcji kości, warzyw i świeżych ziół.</p>
+                </div>
+
+                <div class="p-6 rounded-2xl bg-herbal-linen border border-herbal-linenDark">
+                    <span class="text-herbal-gold font-serif text-2xl font-bold block mb-2">02. Szklane bezpieczeństwo</span>
+                    <h3 class="font-bold text-herbal-sage text-base mb-1">100% Czyste Szkło</h3>
+                    <p class="text-xs text-herbal-muted leading-relaxed">Współpracujemy z polską hutą szkła. Po zjedzeniu słoik możesz odesłać w ramach naszego programu „Zwrot dla Ziemi” lub użyć w domowej spiżarni.</p>
+                </div>
+
+                <div class="p-6 rounded-2xl bg-herbal-linen border border-herbal-linenDark">
+                    <span class="text-herbal-gold font-serif text-2xl font-bold block mb-2">03. Spokój w Twojej lodówce</span>
+                    <h3 class="font-bold text-herbal-sage text-base mb-1">Gotowe w 4 minuty</h3>
+                    <p class="text-xs text-herbal-muted leading-relaxed">Wracasz do domu późno? Otwierasz słój, podgrzewasz i masz na stole pełnowartościowy obiad bez gotowania i bez poczucia winy.</p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Sekcja Katalogu Produktów -->
+    <section id="menu" class="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-grow">
+
+        <!-- Nagłówek i Filtry -->
+        <div class="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
+            <div>
+                <span class="text-herbal-clay uppercase font-bold text-xs tracking-wider block mb-1">Ze Spiżarni Joanny Nycz</span>
+                <h2 class="font-serif text-3xl sm:text-4xl font-bold text-herbal-sage">Karta Weków Restauracyjnych</h2>
+                <p class="text-herbal-muted text-sm mt-1">Przyrządzone z sercem, zamknięte w szkle. Gotowe do podania w kilka minut.</p>
+            </div>
+
+            <!-- Filtry po kategoriach -->
+            <div class="flex flex-wrap items-center gap-2" id="categoryFilters">
+                <button data-cat="all" class="cat-btn px-4 py-2 rounded-full text-xs font-bold transition-all bg-herbal-sage text-herbal-cream">Wszystkie Dania</button>
+                <button data-cat="glowne" class="cat-btn px-4 py-2 rounded-full text-xs font-bold transition-all bg-white hover:bg-herbal-sageSoft text-herbal-sage">Dania z Gęsiną i Mięsem</button>
+                <button data-cat="zupy" class="cat-btn px-4 py-2 rounded-full text-xs font-bold transition-all bg-white hover:bg-herbal-sageSoft text-herbal-sage">Rosoły & Zupy Kolagenowe</button>
+                <button data-cat="weganskie" class="cat-btn px-4 py-2 rounded-full text-xs font-bold transition-all bg-white hover:bg-herbal-sageSoft text-herbal-sage">Ogród & Zioła (Roślinne)</button>
+                <button data-cat="dodatki" class="cat-btn px-4 py-2 rounded-full text-xs font-bold transition-all bg-white hover:bg-herbal-sageSoft text-herbal-sage">Smalczyki & Konfitury</button>
+            </div>
+        </div>
+
+        <!-- Siatka Produktów -->
+        <div id="productsGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Wstrzykiwane przez JS -->
+        </div>
+    </section>
+
+    <!-- Sekcja: Czysty skład & Gwarancje -->
+    <section id="filozofia" class="bg-herbal-sageSoft/60 border-y border-herbal-linenDark/70 py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+
+                <div class="flex items-start gap-4">
+                    <div class="w-11 h-11 rounded-2xl bg-white flex items-center justify-center text-herbal-sage shrink-0 shadow-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-herbal-sage text-xs uppercase tracking-wide">Bez konserwantów</h3>
+                        <p class="text-xs text-herbal-muted mt-1">Żadnego glutaminianu, cukru rafinowanego, azotynów czy zagęszczaczy.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-4">
+                    <div class="w-11 h-11 rounded-2xl bg-white flex items-center justify-center text-herbal-sage shrink-0 shadow-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-herbal-sage text-xs uppercase tracking-wide">Polska Gęś Owsiana</h3>
+                        <p class="text-xs text-herbal-muted mt-1">Szlachetny drób z wolnego wybiegu, karmiony polskim owsem i ziołami.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-4">
+                    <div class="w-11 h-11 rounded-2xl bg-white flex items-center justify-center text-herbal-sage shrink-0 shadow-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-herbal-sage text-xs uppercase tracking-wide">Zioła z Przydomowego Ogrodu</h3>
+                        <p class="text-xs text-herbal-muted mt-1">Świeży lubczyk, cząber, tymianek i majeranek zamiast chemicznych wzmacniaczy.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-4">
+                    <div class="w-11 h-11 rounded-2xl bg-white flex items-center justify-center text-herbal-sage shrink-0 shadow-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-herbal-sage text-xs uppercase tracking-wide">Program Zwrotu Słojów</h3>
+                        <p class="text-xs text-herbal-muted mt-1">Zwróć 10 słoików, a otrzymasz rabat na kolejną partię weków ze spiżarni.</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Stopka -->
+    <footer id="kuchnia" class="bg-herbal-sage text-herbal-cream pt-16 pb-12 border-t border-herbal-sageLight/60">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-10 pb-12 border-b border-herbal-sageLight/40">
+                <div class="md:col-span-2 space-y-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-herbal-cream text-herbal-sage flex items-center justify-center font-serif font-bold text-sm">
+                            G&L
+                        </div>
+                        <span class="font-serif text-2xl font-bold tracking-tight text-white">Gęś i Lubczyk</span>
+                    </div>
+                    <p class="text-herbal-cream/80 text-sm max-w-sm leading-relaxed">
+                        Rzemieślnicza wekownia założona przez Joannę Nycz. Wracamy do źródeł: zdrowia płynącego z natury, szacunku do zwierząt, powolnego gotowania i szklanego słoja.
+                    </p>
+                    <p class="text-xs text-herbal-leaf">
+                        Wekownia: ul. Słoneczna 8, 32-020 Wieliczka / k. Krakowa
+                    </p>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-white text-xs uppercase tracking-wider mb-4">Spiżarnia Joanny</h4>
+                    <ul class="space-y-2 text-sm text-herbal-cream/70">
+                        <li><a href="#menu" class="hover:text-white transition-colors">Dania obiadowe</a></li>
+                        <li><a href="#menu" class="hover:text-white transition-colors">Buliony i zupy</a></li>
+                        <li><a href="#dlaczego-weki" class="hover:text-white transition-colors">Nasz manifest zdrowia</a></li>
+                        <li><a href="#filozofia" class="hover:text-white transition-colors">Polscy dostawcy warzyw</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-white text-xs uppercase tracking-wider mb-4">Porozmawiaj z nami</h4>
+                    <p class="text-sm text-herbal-cream/80">Masz pytania o skład lub diety eliminacyjne?</p>
+                    <p class="text-sm text-herbal-gold font-semibold mt-2">joanna@gesilubczyk.pl</p>
+                    <p class="text-xs text-herbal-cream/60 mt-1">+48 501 234 567 (Pn-Pt 9:00 - 17:00)</p>
+                </div>
+            </div>
+
+            <div class="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-herbal-cream/60 gap-4">
+                <p>&copy; 2026 Gęś i Lubczyk – Joanna Nycz. Wszystkie prawa zastrzeżone.</p>
+                <div class="flex gap-6">
+                    <a href="#" class="hover:underline">Polityka czystego składu</a>
+                    <a href="#" class="hover:underline">Regulamin sklepu</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Boczne Okno Koszyka (Slide-over Cart Drawer) -->
+    <div id="cartBackdrop" class="fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 opacity-0 pointer-events-none"></div>
+    <div id="cartDrawer" class="fixed inset-y-0 right-0 max-w-md w-full bg-herbal-linen shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
+
+        <!-- Nagłówek Koszyka -->
+        <div class="p-6 border-b border-herbal-linenDark flex items-center justify-between bg-herbal-cream">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-herbal-sage" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+                <h3 class="font-serif font-bold text-lg text-herbal-sage">Twoja Domowa Spiżarnia</h3>
+            </div>
+            <button id="closeCartBtn" class="text-herbal-muted hover:text-herbal-ink p-1 rounded-lg">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Pasek Darmowej Dostawy -->
+        <div class="bg-herbal-sageSoft/70 p-4 border-b border-herbal-linenDark text-xs text-herbal-sage">
+            <div class="flex justify-between font-semibold mb-1.5">
+                <span id="shippingText">Do darmowej dostawy brakuje: 190 zł</span>
+                <span id="shippingPercent">0%</span>
+            </div>
+            <div class="w-full bg-herbal-linenDark h-2 rounded-full overflow-hidden">
+                <div id="shippingBar" class="bg-herbal-gold h-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Lista Produktów w Koszyku -->
+        <div id="cartItemsList" class="flex-grow overflow-y-auto p-6 space-y-4">
+            <!-- Dynamiczne pozycje -->
+        </div>
+
+        <!-- Podsumowanie Koszyka -->
+        <div class="p-6 bg-herbal-cream border-t border-herbal-linenDark space-y-4">
+            <div class="flex justify-between items-center text-sm">
+                <span class="text-herbal-muted">Wartość słojów:</span>
+                <span id="cartSubtotal" class="font-bold text-herbal-sage text-lg">0,00 zł</span>
+            </div>
+            <p class="text-xs text-herbal-muted">Bezpieczna paczka termiczna z wkładem mrożącym. Słoje pakowane bez plastiku.</p>
+            <button id="checkoutBtn" class="w-full bg-herbal-sage hover:bg-herbal-sageLight text-herbal-cream py-3.5 rounded-xl font-bold text-sm transition-all shadow-md active:scale-98">
+                Zamów z dostawą do domu
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal ze szczegółami składników (Czysta etykieta) -->
+    <div id="detailModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-herbal-cream rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-herbal-linenDark shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button id="closeModalBtn" class="absolute top-6 right-6 text-herbal-muted hover:text-herbal-ink">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+
+            <span id="modalCategory" class="text-xs font-bold uppercase tracking-wider text-herbal-clay">Kategoria</span>
+            <h3 id="modalTitle" class="font-serif text-2xl font-bold text-herbal-sage mt-1 mb-2">Tytuł potrawy</h3>
+            <p id="modalDesc" class="text-xs sm:text-sm text-herbal-muted mb-5 leading-relaxed">Opis potrawy...</p>
+
+            <div class="space-y-4 border-t border-herbal-linenDark pt-4">
+                <div>
+                    <h4 class="font-bold text-xs uppercase tracking-wider text-herbal-sage">Pełna Etykieta (Bez ukrytych dodatków)</h4>
+                    <p id="modalIngredients" class="text-xs text-herbal-ink mt-1.5 p-3.5 bg-herbal-linen rounded-xl border border-herbal-linenDark leading-relaxed font-medium">Składniki...</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-xs uppercase tracking-wider text-herbal-sage">Komentarz Joanny Nycz</h4>
+                    <p id="modalChefTip" class="text-xs text-herbal-muted mt-1 italic leading-relaxed">Wskazówka...</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <div class="bg-herbal-linen p-3 rounded-xl border border-herbal-linenDark">
+                        <span class="block text-[10px] text-herbal-muted uppercase tracking-wider">Masa słoju</span>
+                        <span id="modalPortion" class="text-xs font-bold text-herbal-sage">540 g (1-2 porcje)</span>
+                    </div>
+                    <div class="bg-herbal-linen p-3 rounded-xl border border-herbal-linenDark">
+                        <span class="block text-[10px] text-herbal-muted uppercase tracking-wider">Przygotowanie</span>
+                        <span class="text-xs font-bold text-herbal-sage">4-5 minut w garnku</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-herbal-linenDark flex items-center justify-between">
+                <span id="modalPrice" class="font-bold text-xl text-herbal-sage">0,00 zł</span>
+                <button id="modalAddBtn" class="bg-herbal-clay hover:bg-[#A95A43] text-white px-6 py-2.5 rounded-full font-bold text-xs transition-all shadow">
+                    Dodaj do spiżarni
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Powiadomienie Toast -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-herbal-sage text-herbal-cream px-5 py-3 rounded-full text-xs sm:text-sm font-semibold shadow-lg flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50 pointer-events-none">
+        <svg class="w-4 h-4 text-herbal-gold" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+        <span id="toastMessage">Dodano słoik do koszyka</span>
+    </div>
+
+    <!-- Logika Koszyka i Aplikacji -->
+    <script>
+        // Baza dań Gęś i Lubczyk - Joanna Nycz
+        const products = [
+            {
+                id: 1,
+                title: "Gęś Owsiana Duszona w Cydrze z Jabłkiem i Lubczykiem",
+                category: "glowne",
+                badge: "Specjalność Joanny",
+                price: 48.00,
+                weight: "540 g (2 porcje)",
+                image: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&q=80&w=700",
+                desc: "Mięso polskiej gęsi owsianej, wolno duszone przez 14 godzin w wytrawnym cydrze rzemieślniczym z jabłkami Szara Reneta i świeżym lubczykiem ogrodowym.",
+                ingredients: "Mięso z polskiej gęsi owsianej (55%), cydr jabłkowy rzemieślniczy, jabłka Szara Reneta z Grójca, wywar z pieczonych kości gęsich, świeży lubczyk (4%), cebula cukrowa, majeranek otarty, sól kłodawska, pieprz ziołowy.",
+                chefTip: "Podgrzej powoli. Podawaj z kaszą gryczaną niepaloną i buraczkami z chrzanem."
+            },
+            {
+                id: 2,
+                title: "Złocisty Rosół z Gęsiny i Kury Zagrodowej na Lubczyku",
+                category: "zupy",
+                badge: "Eliksir Kolagenowy",
+                price: 32.00,
+                weight: "680 ml",
+                image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&q=80&w=700",
+                desc: "Gotowany przez 18 godzin głęboki, bursztynowy bulion ze szkieletów gęsi i kur zagrodowych z opalonym porem, korzeniem pietruszki i pęczkiem lubczyku.",
+                ingredients: "Filtrowana woda źródlana, kości i podroby gęsie oraz kurze z wolnego wybiegu, marchew karotka, seler korzeniowy, pietruszka korzeń, opalana cebula z łupiną, świeży lubczyk, liść laurowy, ziele angielskie, sól kamienna.",
+                chefTip: "Pij gorący w kubku o poranku na wzmocnienie jelit lub ugotuj z nim domowy makaron krajankę."
+            },
+            {
+                id: 3,
+                title: "Aksamitny Krem z Pieczonego Pasternaku i Gruszki",
+                category: "weganskie",
+                badge: "Ogród & Zioła",
+                price: 27.00,
+                weight: "500 ml",
+                image: "https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?auto=format&fit=crop&q=80&w=700",
+                desc: "Zapomniany polski pasternak pieczony do karmelizacji, zblendowany z dojrzałą gruszką Konferencją, oliwą lubczykową i nasionami prażonego kminku.",
+                ingredients: "Pasternak pieczony (60%), polska gruszka Konferencja (15%), wywar warzywny z pieczonych korzeni, tłoczona na zimno oliwa z esencją z lubczyku, gałka muszkatołowa, sól kłodawska biała.",
+                chefTip: "Przed samym podaniem posyp posiekanymi orzechami włoskimi."
+            },
+            {
+                id: 4,
+                title: "Tradycyjny Gulasz z Serca Wołowego i Gęsiny z Borowikami",
+                category: "glowne",
+                badge: "Slow Food",
+                price: 44.00,
+                weight: "520 g",
+                image: "https://images.unsplash.com/photo-1603105037880-880cd4edfb5d?auto=format&fit=crop&q=80&w=700",
+                desc: "Bogate w żelazo i minerały danie jednogarnkowe: kruche mięsa duszone z suszonymi borowikami leśnymi, jałowcem i gęsim smalcem.",
+                ingredients: "Wołowina ekologiczna (30%), mięso z gęsi (25%), suszone borowiki ze świętokrzyskich lasów, cebula, czosnek polski niedźwiedzi, wytopiony smalec gęsi, czerwone wino gronowe, liść laurowy, cząber.",
+                chefTip: "Świetnie smakuje z kopytkami lub pajdą wiejskiego chleba na zakwasie żytnim."
+            },
+            {
+                id: 5,
+                title: "Roślinny Gar Klasztorny z Fasolą Piękny Jaś i Cząbrem",
+                category: "weganskie",
+                badge: "100% Roślinne",
+                price: 29.00,
+                weight: "500 g",
+                image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=700",
+                desc: "Pożywne danie na bazie polskiej fasoli Piękny Jaś z Doliny Dunajca, pomidorów gruntowych, wędzonej śliwki suski sechlońskiej i leśnego cząbru.",
+                ingredients: "Fasola Piękny Jaś z ChOG (45%), przetarte pomidory malinowe, wędzona śliwka suska sechlońska, marchew, korzeń lubczyku, majeranek polny, cząber, zimnotłoczony olej rzepakowy, sól.",
+                chefTip: "Syci na wiele godzin, dostarczając naturalnego białka i błonnika bez obciążania żołądka."
+            },
+            {
+                id: 6,
+                title: "Wytopiony Smalec Gęsi z Zielonym Jabłkiem i Majerankiem",
+                category: "dodatki",
+                badge: "Skarb Zdrowia",
+                price: 22.00,
+                weight: "220 g",
+                image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&q=80&w=700",
+                desc: "Czysty tłuszcz gęsi uważany w medycynie ludowej za panaceum, wytopiony powoli z kawałkami kwaśnej antonówki, majerankiem i odrobiną soli.",
+                ingredients: "Czysty tłuszcz z polskiej gęsi owsianej (90%), polskie jabłka antonówki, cebula szalotka, suszony majeranek ze zbioru letniego, sól kamienna.",
+                chefTip: "Najlepszy do podsmażania warzyw korzennych lub cienko rozsmarowany na ciepłym pieczywie."
+            }
+        ];
+
+        let cart = [];
+        let selectedProduct = null;
+
+        // DOM
+        const productsGrid = document.getElementById('productsGrid');
+        const cartDrawer = document.getElementById('cartDrawer');
+        const cartBackdrop = document.getElementById('cartBackdrop');
+        const cartBtn = document.getElementById('cartBtn');
+        const closeCartBtn = document.getElementById('closeCartBtn');
+        const cartItemsList = document.getElementById('cartItemsList');
+        const cartCountBadge = document.getElementById('cartCountBadge');
+        const cartSubtotal = document.getElementById('cartSubtotal');
+        const shippingBar = document.getElementById('shippingBar');
+        const shippingText = document.getElementById('shippingText');
+        const shippingPercent = document.getElementById('shippingPercent');
+        const checkoutBtn = document.getElementById('checkoutBtn');
+
+        const detailModal = document.getElementById('detailModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const modalCategory = document.getElementById('modalCategory');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalDesc = document.getElementById('modalDesc');
+        const modalIngredients = document.getElementById('modalIngredients');
+        const modalChefTip = document.getElementById('modalChefTip');
+        const modalPortion = document.getElementById('modalPortion');
+        const modalPrice = document.getElementById('modalPrice');
+        const modalAddBtn = document.getElementById('modalAddBtn');
+
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+
+        // Render kart
+        function renderProducts(filter = 'all') {
+            productsGrid.innerHTML = '';
+
+            const filtered = filter === 'all'
+                ? products
+                : products.filter(p => p.category === filter);
+
+            filtered.forEach(p => {
+                const card = document.createElement('div');
+                card.className = "bg-herbal-cream rounded-3xl p-5 border border-herbal-linenDark shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between group";
+
+                card.innerHTML = `
+                    <div>
+                        <div class="relative overflow-hidden rounded-2xl mb-4 bg-herbal-linen">
+                            <img src="${p.image}" alt="${p.title}" class="w-full h-48 sm:h-52 object-cover transition-transform duration-500 group-hover:scale-105">
+                            <span class="absolute top-3 left-3 bg-herbal-sage text-herbal-cream text-[10px] font-bold px-3 py-1 rounded-full tracking-wider uppercase">
+                                ${p.badge}
+                            </span>
+                        </div>
+
+                        <div class="flex items-center justify-between text-[11px] text-herbal-muted mb-2">
+                            <span>Słój: ${p.weight}</span>
+                            <span class="text-herbal-clay font-semibold">Receptura Joanny</span>
+                        </div>
+
+                        <h3 class="font-serif font-bold text-base sm:text-lg text-herbal-sage mb-2 leading-snug group-hover:text-herbal-clay transition-colors">
+                            ${p.title}
+                        </h3>
+
+                        <p class="text-xs text-herbal-muted line-clamp-2 mb-4 leading-relaxed">
+                            ${p.desc}
+                        </p>
+                    </div>
+
+                    <div class="pt-4 border-t border-herbal-linenDark/70">
+                        <button onclick="openDetailModal(${p.id})" class="text-xs text-herbal-sage font-semibold underline underline-offset-4 decoration-herbal-leaf hover:text-herbal-clay mb-4 block text-left">
+                            Skład i notatki z kuchni Joanny →
+                        </button>
+
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-[10px] uppercase text-herbal-muted block font-semibold">Cena</span>
+                                <span class="font-serif font-bold text-xl text-herbal-sage">${p.price.toFixed(2).replace('.', ',')} zł</span>
+                            </div>
+                            <button onclick="addToCart(${p.id})" class="bg-herbal-sage hover:bg-herbal-sageLight text-herbal-cream px-4 py-2 rounded-full font-bold text-xs transition-all flex items-center gap-1.5 shadow-sm active:scale-95">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                Do spiżarni
+                            </button>
+                        </div>
+                    </div>
+                `;
+                productsGrid.appendChild(card);
+            });
+        }
+
+        // Filtry
+        const catButtons = document.querySelectorAll('.cat-btn');
+        catButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                catButtons.forEach(b => {
+                    b.classList.remove('bg-herbal-sage', 'text-herbal-cream');
+                    b.classList.add('bg-white', 'text-herbal-sage');
+                });
+                btn.classList.add('bg-herbal-sage', 'text-herbal-cream');
+                btn.classList.remove('bg-white', 'text-herbal-sage');
+
+                renderProducts(btn.dataset.cat);
+            });
+        });
+
+        // Koszyk
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            const existingIndex = cart.findIndex(item => item.id === productId);
+            if (existingIndex > -1) {
+                cart[existingIndex].qty += 1;
+            } else {
+                cart.push({ ...product, qty: 1 });
+            }
+
+            updateCartUI();
+            showToast(`Dodano do spiżarni: ${product.title}`);
+        }
+
+        function changeQty(productId, delta) {
+            const index = cart.findIndex(item => item.id === productId);
+            if (index === -1) return;
+
+            cart[index].qty += delta;
+            if (cart[index].qty <= 0) {
+                cart.splice(index, 1);
+            }
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const totalQty = cart.reduce((acc, item) => acc + item.qty, 0);
+            const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+
+            cartCountBadge.textContent = totalQty;
+            cartSubtotal.textContent = `${subtotal.toFixed(2).replace('.', ',')} zł`;
+
+            const freeShippingThreshold = 190;
+            const remaining = freeShippingThreshold - subtotal;
+            const percentage = Math.min(100, Math.round((subtotal / freeShippingThreshold) * 100));
+
+            shippingBar.style.width = `${percentage}%`;
+            shippingPercent.textContent = `${percentage}%`;
+
+            if (remaining <= 0 && subtotal > 0) {
+                shippingText.textContent = "Przysługuje Ci darmowa wysyłka w boksie chłodniczym!";
+                shippingBar.classList.remove('bg-herbal-gold');
+                shippingBar.classList.add('bg-herbal-sage');
+            } else {
+                shippingText.textContent = `Do darmowej dostawy brakuje: ${remaining.toFixed(2).replace('.', ',')} zł`;
+                shippingBar.classList.add('bg-herbal-gold');
+                shippingBar.classList.remove('bg-herbal-sage');
+            }
+
+            if (cart.length === 0) {
+                cartItemsList.innerHTML = `
+                    <div class="text-center py-16">
+                        <div class="w-14 h-14 rounded-full bg-herbal-sageSoft mx-auto flex items-center justify-center text-herbal-sage mb-3">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                        </div>
+                        <p class="font-serif font-bold text-herbal-sage text-base">Twoja spiżarnia jest pusta</p>
+                        <p class="text-xs text-herbal-muted mt-1">Wybierz słoje gotowane przez Joannę Nycz.</p>
+                    </div>
+                `;
+                checkoutBtn.disabled = true;
+                checkoutBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                checkoutBtn.disabled = false;
+                checkoutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+                cartItemsList.innerHTML = cart.map(item => `
+                    <div class="flex items-center gap-3 bg-herbal-cream p-3 rounded-2xl border border-herbal-linenDark">
+                        <img src="${item.image}" alt="${item.title}" class="w-14 h-14 rounded-xl object-cover">
+                        <div class="flex-grow min-w-0">
+                            <h4 class="font-serif font-bold text-xs text-herbal-sage truncate">${item.title}</h4>
+                            <span class="text-[10px] text-herbal-muted">${item.weight}</span>
+                            <div class="text-xs font-bold text-herbal-sage mt-0.5">
+                                ${(item.price * item.qty).toFixed(2).replace('.', ',')} zł
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5 bg-herbal-linen px-2 py-1 rounded-full border border-herbal-linenDark">
+                            <button onclick="changeQty(${item.id}, -1)" class="w-4 h-4 flex items-center justify-center font-bold text-herbal-sage hover:text-herbal-clay">-</button>
+                            <span class="text-xs font-bold w-4 text-center">${item.qty}</span>
+                            <button onclick="changeQty(${item.id}, 1)" class="w-4 h-4 flex items-center justify-center font-bold text-herbal-sage hover:text-herbal-clay">+</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function toggleCart(open) {
+            if (open) {
+                cartBackdrop.classList.remove('opacity-0', 'pointer-events-none');
+                cartDrawer.classList.remove('translate-x-full');
+            } else {
+                cartBackdrop.classList.add('opacity-0', 'pointer-events-none');
+                cartDrawer.classList.add('translate-x-full');
+            }
+        }
+
+        cartBtn.addEventListener('click', () => toggleCart(true));
+        closeCartBtn.addEventListener('click', () => toggleCart(false));
+        cartBackdrop.addEventListener('click', () => toggleCart(false));
+
+        // Modal
+        function openDetailModal(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+            selectedProduct = product;
+
+            modalCategory.textContent = product.badge;
+            modalTitle.textContent = product.title;
+            modalDesc.textContent = product.desc;
+            modalIngredients.textContent = product.ingredients;
+            modalChefTip.textContent = `„${product.chefTip}” – Joanna Nycz`;
+            modalPortion.textContent = product.weight;
+            modalPrice.textContent = `${product.price.toFixed(2).replace('.', ',')} zł`;
+
+            detailModal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function closeDetailModal() {
+            detailModal.classList.add('opacity-0', 'pointer-events-none');
+            selectedProduct = null;
+        }
+
+        closeModalBtn.addEventListener('click', closeDetailModal);
+        detailModal.addEventListener('click', (e) => {
+            if (e.target === detailModal) closeDetailModal();
+        });
+
+        modalAddBtn.addEventListener('click', () => {
+            if (selectedProduct) {
+                addToCart(selectedProduct.id);
+                closeDetailModal();
+            }
+        });
+
+        function showToast(msg) {
+            toastMessage.textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        checkoutBtn.addEventListener('click', () => {
+            if (cart.length === 0) return;
+            showToast("Łączenie z bezpieczną płatnością...");
+            setTimeout(() => {
+                alert(`Dziękujemy! Joanna Nycz przygotuje dla Ciebie świeżą paczkę weków o wartości ${cartSubtotal.textContent}.`);
+                cart = [];
+                updateCartUI();
+                toggleCart(false);
+            }, 500);
+        });
+
+        // Inicjalizacja
+        renderProducts();
+        updateCartUI();
+    </script>
+</body>
+</html>
