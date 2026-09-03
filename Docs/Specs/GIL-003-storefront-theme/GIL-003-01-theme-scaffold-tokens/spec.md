@@ -2,7 +2,7 @@
 id: GIL-003-01
 kind: Task
 title: Theme scaffold, design tokens, header & footer restyle
-status: In Progress
+status: Shipped
 parent: GIL-003
 ---
 
