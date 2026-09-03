@@ -28,4 +28,8 @@
     <ProjectReference Include="..\..\Libraries\Nop.Services\Nop.Services.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Nop.Tests" />
+  </ItemGroup>
+
 </Project>
