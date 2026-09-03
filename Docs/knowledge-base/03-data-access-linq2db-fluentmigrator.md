@@ -72,10 +72,18 @@ public class MyRecordBuilder : NopEntityBuilder<MyRecord>
 ```
 
 3. **Schema migration** — creates the table; version derives from the timestamp string, so a
-   near-guaranteed-unique value is "now" at authoring time, not an incrementing counter:
+   near-guaranteed-unique value is "now" at authoring time, not an incrementing counter. Use
+   `[NopMigration(...)]`, **not** `[NopSchemaMigration(...)]` — every real plugin schema migration in
+   this repo (Ingredients, ServingSuggestions) uses the former
+   `[verified: src/Plugins/Nop.Plugin.Misc.Ingredients/Data/Migrations/SchemaMigration.cs,
+   src/Plugins/Nop.Plugin.Misc.ServingSuggestions/Data/Migrations/SchemaMigration.cs]`.
+   `NopSchemaMigrationAttribute` (`src/Libraries/Nop.Data/Migrations/NopSchemaMigrationAttribute.cs`) is
+   a narrower attribute that forces `IsSchemaMigration = true`, meaning the migration runs before the DI
+   container is available and must not inject any dependency — the right choice for a handful of core
+   bootstrap migrations, wrong for an ordinary plugin table that owns no special boot-order requirement:
 
 ```csharp
-[NopSchemaMigration("2026-08-30 00:00:00", "Misc.MyPlugin base schema", MigrationProcessType.Installation)]
+[NopMigration("2026-08-30 00:00:00", "Misc.MyPlugin base schema", MigrationProcessType.Installation)]
 public class SchemaMigration : ForwardOnlyMigration
 {
     public override void Up() => this.CreateTableIfNotExists<MyRecord>();
