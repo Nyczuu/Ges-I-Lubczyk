@@ -1,0 +1,610 @@
+/* Gęś i Lubczyk brand theme — homepage hero & brand-story restyle (GIL-003-02).
+
+   Scope: styles the `HomepageText` Topic's rendered body HTML (Topic/Body, output via
+   TopicBlockViewComponent -> Shared/Components/TopicBlock/Default.cshtml) into the mockup's hero,
+   "Dlaczego weki?" manifesto and "Czysty skład" trust-badge sections. `Topic.Title` is left empty by
+   the coordinated manual content edit (see spec GIL-003-02, Technical design) — the mockup's two-tone
+   headline is authored as raw HTML at the top of `Body` instead (`.gil-hero-title`), so no
+   `.topic-block-title` rule is needed here.
+
+   Selector-scoping rule (non-negotiable — see spec's "Blast radius"): `.topic-block` /
+   `.topic-block-body` also render on Login, ContactUs, PageNotFound, ApplyVendor and any standalone
+   Topic/TopicDetails page, and a bare `h2`/`h3` selector would also catch
+   HomepageCategoriesViewComponent's per-category titles on this same page. Every selector below is
+   therefore prefixed `.home-page` and nested at least to `.topic-block-body .gil-*` before any tag
+   selector is used — never a bare-tag selector scoped only by `.home-page`.
+
+   Every color/font value below is a var(--gil-*) token from tokens.css; none is redefined here.
+
+   The class names below are the contract the manual Admin Topic-body content edit (Epic §7, this
+   Task's spec §6) must reproduce. Beyond the top-level names fixed at Gate 1
+   (.gil-hero-title/.gil-hero-title-accent/.gil-hero/.gil-manifesto/.gil-manifesto-heading/
+   .gil-manifesto-grid/.gil-quote-card/.gil-pillars/.gil-pillars .gil-pillar/.gil-trust-badges), the
+   inner structural class names (.gil-hero-content, .gil-hero-badge, .gil-hero-actions, ...) are this
+   file's own translation of mockup-reference.html's markup into the same flat-hyphenated naming
+   convention already used by this theme's header-footer.css (.gil-footer-upper, .gil-footer-contact-*),
+   documented in the section comments below so the manual edit has an unambiguous target. */
+
+/* ---------------------------------------------------------------------------------------------------
+   HERO
+
+   Expected Body markup:
+   <h1 class="gil-hero-title">Prawdziwy obiad to lekarstwo. <br>
+     <span class="gil-hero-title-accent">Nie szybka kaloria.</span></h1>
+   <div class="gil-hero">
+     <div class="gil-hero-content">
+       <div class="gil-hero-badge"><span>✦</span> Tradycja wekowania powracająca na polskie stoły</div>
+       <p>lead paragraph…</p>
+       <div class="gil-hero-actions">
+         <a class="gil-hero-cta-primary" href="...">Odkryj Menu Słojów</a>
+         <a class="gil-hero-cta-secondary" href="...">Dlaczego wekujemy? Przeczytaj nasz manifest</a>
+       </div>
+       <div class="gil-hero-stats">
+         <div class="gil-hero-stat"><strong>100%</strong><span>czysty skład (Clean Label)</span></div>
+         <div class="gil-hero-stat">…</div>
+         <div class="gil-hero-stat">…</div>
+       </div>
+     </div>
+     <figure class="gil-hero-media">
+       <img src="..." alt="...">
+       <figcaption class="gil-hero-media-caption">
+         <span>Danie Autorskie Joanny Nycz</span>
+         <strong>Gęś w Cydrze z Jabłkami i Lubczykiem</strong>
+       </figcaption>
+     </figure>
+   </div>
+   --------------------------------------------------------------------------------------------------- */
+
+.home-page .topic-block-body .gil-hero-title {
+    font-family: var(--gil-font-serif);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -.01em;
+    color: var(--gil-color-sage);
+    margin: 0 0 24px;
+    text-align: left;
+}
+
+.home-page .topic-block-body .gil-hero-title-accent {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--gil-color-clay);
+}
+
+.home-page .topic-block-body .gil-hero {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 40px;
+    align-items: center;
+    padding: 24px 0 48px;
+    border-bottom: 1px solid var(--gil-color-linen-dark);
+    text-align: left;
+}
+
+.home-page .topic-block-body .gil-hero-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.home-page .topic-block-body .gil-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    align-self: flex-start;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background-color: var(--gil-color-sage-soft);
+    border: 1px solid var(--gil-color-leaf);
+    color: var(--gil-color-sage);
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: .02em;
+}
+
+.home-page .topic-block-body .gil-hero-badge span {
+    color: var(--gil-color-clay);
+}
+
+.home-page .topic-block-body .gil-hero-content > p {
+    font-family: var(--gil-font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--gil-color-muted);
+    max-width: 34em;
+    margin: 0;
+}
+
+.home-page .topic-block-body .gil-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+}
+
+.home-page .topic-block-body .gil-hero-actions a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    border-radius: 999px;
+    font-family: var(--gil-font-sans);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.home-page .topic-block-body .gil-hero-cta-primary {
+    background-color: var(--gil-color-sage);
+    color: var(--gil-color-cream);
+}
+
+.home-page .topic-block-body .gil-hero-cta-primary:hover,
+.home-page .topic-block-body .gil-hero-cta-primary:focus {
+    background-color: var(--gil-color-sage-light);
+}
+
+.home-page .topic-block-body .gil-hero-cta-secondary {
+    background-color: transparent;
+    border: 1px solid var(--gil-color-sage);
+    color: var(--gil-color-sage);
+}
+
+.home-page .topic-block-body .gil-hero-cta-secondary:hover,
+.home-page .topic-block-body .gil-hero-cta-secondary:focus {
+    background-color: var(--gil-color-sage-soft);
+}
+
+.home-page .topic-block-body .gil-hero-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    max-width: 32em;
+    margin-top: 8px;
+    padding-top: 20px;
+    border-top: 1px solid var(--gil-color-linen-dark);
+}
+
+.home-page .topic-block-body .gil-hero-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.home-page .topic-block-body .gil-hero-stat strong {
+    font-family: var(--gil-font-serif);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gil-color-sage);
+}
+
+.home-page .topic-block-body .gil-hero-stat span {
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    color: var(--gil-color-muted);
+}
+
+.home-page .topic-block-body .gil-hero-media {
+    margin: 0;
+    padding: 16px;
+    border-radius: 24px;
+    background-color: var(--gil-color-cream);
+    border: 1px solid var(--gil-color-linen-dark);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+    position: relative;
+}
+
+.home-page .topic-block-body .gil-hero-media img {
+    display: block;
+    width: 100%;
+    height: 320px;
+    object-fit: cover;
+    border-radius: 16px;
+}
+
+.home-page .topic-block-body .gil-hero-media-caption {
+    position: absolute;
+    left: 32px;
+    right: 32px;
+    bottom: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 16px;
+    background-color: var(--gil-color-cream);
+    border: 1px solid var(--gil-color-linen-dark);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    font-family: var(--gil-font-sans);
+}
+
+.home-page .topic-block-body .gil-hero-media-caption span {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--gil-color-clay);
+}
+
+.home-page .topic-block-body .gil-hero-media-caption strong {
+    display: block;
+    font-family: var(--gil-font-serif);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--gil-color-sage);
+}
+
+@media all and (min-width: 769px) {
+    .home-page .topic-block-body .gil-hero-title {
+        font-size: 44px;
+    }
+
+    .home-page .topic-block-body .gil-hero {
+        grid-template-columns: 7fr 5fr;
+        gap: 48px;
+    }
+}
+
+@media all and (min-width: 1001px) {
+    .home-page .topic-block-body .gil-hero-title {
+        font-size: 56px;
+    }
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   MANIFESTO ("Dlaczego weki?")
+
+   Expected Body markup:
+   <section id="gil-manifesto" class="gil-manifesto">
+     <div class="gil-manifesto-heading">
+       <span class="gil-manifesto-eyebrow">Manifest & Pasja</span>
+       <h2>Dlaczego właśnie weki? <br>
+         <span class="gil-manifesto-heading-accent">O misji powrotu do prawdziwego jedzenia</span></h2>
+     </div>
+     <div class="gil-manifesto-grid">
+       <div class="gil-quote-card">
+         <div class="gil-quote-avatar">JN</div>
+         <blockquote>„…”</blockquote>
+         <div class="gil-quote-meta">
+           <span class="gil-quote-meta-name">Joanna Nycz</span>
+           <span class="gil-quote-meta-role">Szefowa i twórczyni wekowni „Gęś i Lubczyk”</span>
+         </div>
+         <ul class="gil-quote-points">
+           <li>Wyłącznie polskie rzemieślnicze surowce</li>
+           <li>…</li>
+         </ul>
+       </div>
+       <div class="gil-manifesto-essay">
+         <p class="gil-manifesto-essay-lead">Żyjemy w czasach żywnościowego paradoksu…</p>
+         <p>Pamiętam kuchnię mojej prababci…</p>
+         <div class="gil-manifesto-callout">
+           <h4>Nasza Główna Misja:</h4>
+           <p>Chcemy przywrócić zdrowe, czyste jedzenie do polskich domów…</p>
+         </div>
+         <p>Dlaczego słoik, a nie plastikowa tacka? <br>…</p>
+         <p class="gil-manifesto-footnote">Nazwa „Gęś i Lubczyk” to hołd…</p>
+       </div>
+     </div>
+     <div class="gil-pillars">
+       <div class="gil-pillar">
+         <span class="gil-pillar-number">01. Czas zamiast chemii</span>
+         <h3>Głębia z redukcji</h3>
+         <p>…</p>
+       </div>
+       <div class="gil-pillar">…</div>
+       <div class="gil-pillar">…</div>
+     </div>
+   </section>
+   --------------------------------------------------------------------------------------------------- */
+
+.home-page .topic-block-body .gil-manifesto {
+    padding: 48px 0;
+    background-color: var(--gil-color-cream);
+    border-bottom: 1px solid var(--gil-color-linen-dark);
+}
+
+.home-page .topic-block-body .gil-manifesto-heading {
+    max-width: 42em;
+    margin: 0 auto 48px;
+    text-align: center;
+}
+
+.home-page .topic-block-body .gil-manifesto-eyebrow {
+    display: block;
+    margin: 0 0 8px;
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--gil-color-clay);
+}
+
+.home-page .topic-block-body .gil-manifesto-heading h2 {
+    font-family: var(--gil-font-serif);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--gil-color-sage);
+    margin: 0;
+}
+
+.home-page .topic-block-body .gil-manifesto-heading-accent {
+    display: inline-block;
+    margin-top: 4px;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 20px;
+    color: var(--gil-color-ink);
+}
+
+.home-page .topic-block-body .gil-manifesto-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+    align-items: start;
+    text-align: left;
+}
+
+.home-page .topic-block-body .gil-quote-card {
+    padding: 24px;
+    border-radius: 24px;
+    background-color: var(--gil-color-linen);
+    border: 1px solid var(--gil-color-linen-dark);
+}
+
+.home-page .topic-block-body .gil-quote-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    margin: 0 0 16px;
+    border-radius: 50%;
+    background-color: var(--gil-color-sage-soft);
+    font-family: var(--gil-font-serif);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gil-color-sage);
+}
+
+.home-page .topic-block-body .gil-quote-card blockquote {
+    margin: 0 0 16px;
+    font-family: var(--gil-font-serif);
+    font-style: italic;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--gil-color-sage);
+}
+
+.home-page .topic-block-body .gil-quote-meta {
+    padding-top: 16px;
+    border-top: 1px solid var(--gil-color-linen-dark);
+}
+
+.home-page .topic-block-body .gil-quote-meta-name {
+    display: block;
+    font-family: var(--gil-font-sans);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gil-color-sage);
+}
+
+.home-page .topic-block-body .gil-quote-meta-role {
+    display: block;
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    color: var(--gil-color-muted);
+}
+
+.home-page .topic-block-body .gil-quote-points {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.home-page .topic-block-body .gil-quote-points li {
+    position: relative;
+    padding-left: 16px;
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    color: var(--gil-color-sage-light);
+}
+
+.home-page .topic-block-body .gil-quote-points li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--gil-color-sage);
+}
+
+.home-page .topic-block-body .gil-manifesto-essay {
+    font-family: var(--gil-font-sans);
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--gil-color-ink);
+}
+
+.home-page .topic-block-body .gil-manifesto-essay > p {
+    margin: 0 0 20px;
+}
+
+.home-page .topic-block-body .gil-manifesto-essay-lead {
+    font-family: var(--gil-font-serif);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--gil-color-sage);
+}
+
+.home-page .topic-block-body .gil-manifesto-callout {
+    margin: 0 0 20px;
+    padding: 20px;
+    border-radius: 16px;
+    border-left: 4px solid var(--gil-color-sage);
+    background-color: var(--gil-color-sage-soft);
+}
+
+.home-page .topic-block-body .gil-manifesto-callout h4 {
+    margin: 0 0 8px;
+    font-family: var(--gil-font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--gil-color-sage);
+}
+
+.home-page .topic-block-body .gil-manifesto-callout p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--gil-color-ink);
+}
+
+.home-page .topic-block-body .gil-manifesto-footnote {
+    font-style: italic;
+    font-size: 13px;
+    color: var(--gil-color-muted);
+}
+
+.home-page .topic-block-body .gil-pillars {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-top: 56px;
+    padding-top: 48px;
+    border-top: 1px solid var(--gil-color-linen-dark);
+    text-align: left;
+}
+
+.home-page .topic-block-body .gil-pillars .gil-pillar {
+    padding: 24px;
+    border-radius: 16px;
+    background-color: var(--gil-color-linen);
+    border: 1px solid var(--gil-color-linen-dark);
+}
+
+.home-page .topic-block-body .gil-pillars .gil-pillar-number {
+    display: block;
+    margin: 0 0 8px;
+    font-family: var(--gil-font-serif);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gil-color-gold);
+}
+
+.home-page .topic-block-body .gil-pillars .gil-pillar h3 {
+    margin: 0 0 4px;
+    font-family: var(--gil-font-sans);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gil-color-sage);
+}
+
+.home-page .topic-block-body .gil-pillars .gil-pillar p {
+    margin: 0;
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--gil-color-muted);
+}
+
+@media all and (min-width: 769px) {
+    .home-page .topic-block-body .gil-manifesto-grid {
+        grid-template-columns: 5fr 7fr;
+        gap: 40px;
+    }
+
+    .home-page .topic-block-body .gil-pillars {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   TRUST BADGES ("Czysty Skład")
+
+   Expected Body markup (see spec's Technical design — in scope for this Task, positioned after the
+   product grid since no other homepage render slot exists earlier without a widget zone):
+   <section class="gil-trust-badges">
+     <div class="gil-trust-badge">
+       <div class="gil-trust-badge-icon"><svg>…</svg></div>
+       <div>
+         <h3>Bez konserwantów</h3>
+         <p>Żadnego glutaminianu, cukru rafinowanego, azotynów czy zagęszczaczy.</p>
+       </div>
+     </div>
+     <div class="gil-trust-badge">…</div>
+     <div class="gil-trust-badge">…</div>
+     <div class="gil-trust-badge">…</div>
+   </section>
+   --------------------------------------------------------------------------------------------------- */
+
+.home-page .topic-block-body .gil-trust-badges {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 32px;
+    border-top: 1px solid var(--gil-color-linen-dark);
+    border-bottom: 1px solid var(--gil-color-linen-dark);
+    background-color: var(--gil-color-sage-soft);
+    text-align: left;
+}
+
+.home-page .topic-block-body .gil-trust-badges .gil-trust-badge {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.home-page .topic-block-body .gil-trust-badges .gil-trust-badge-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 16px;
+    background-color: var(--gil-color-cream);
+    color: var(--gil-color-sage);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.home-page .topic-block-body .gil-trust-badges .gil-trust-badge h3 {
+    margin: 0;
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    color: var(--gil-color-sage);
+}
+
+.home-page .topic-block-body .gil-trust-badges .gil-trust-badge p {
+    margin: 4px 0 0;
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--gil-color-muted);
+}
+
+@media all and (min-width: 769px) {
+    .home-page .topic-block-body .gil-trust-badges {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media all and (min-width: 1001px) {
+    .home-page .topic-block-body .gil-trust-badges {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
