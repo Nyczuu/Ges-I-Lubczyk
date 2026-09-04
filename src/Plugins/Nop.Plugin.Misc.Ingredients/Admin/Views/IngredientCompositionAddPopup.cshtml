@@ -96,42 +96,13 @@ else
         </div>
     </section>
 </form>
+<script asp-location="Footer" src="~/Plugins/Misc.Ingredients/Content/js/persisted-checkbox-selection.js"></script>
 <script asp-location="Footer">
     $(function () {
-        //the grid re-queries the server on every page/search change, which wipes and re-renders every
-        //checkbox unchecked - without this, only whatever is checked on the CURRENT page at Save time
-        //gets submitted, silently dropping selections made on pages the admin already navigated away from
-        var $table = $('#ingredients-popup-grid');
-        var persistedIds = new Set();
-
-        $table.on('change', 'input.checkboxGroups', function () {
-            var id = $(this).val();
-            if ($(this).is(':checked')) {
-                persistedIds.add(id);
-            } else {
-                persistedIds.delete(id);
-            }
-        });
-
-        //re-apply the checked state for rows the admin already selected whenever this page/search result
-        //re-renders them, so a page revisited later still shows what was picked
-        $table.on('draw.dt', function () {
-            $table.find('input.checkboxGroups').each(function () {
-                if (persistedIds.has($(this).val())) {
-                    $(this).prop('checked', true);
-                }
-            });
-            updateMasterCheckbox($table.parents('.dt-scroll').first());
-        });
-
-        $('#ingredient-composition-add-popup-form').on('submit', function () {
-            //hand off submission from the checkboxes (only the current page's) to hidden inputs built
-            //from the full persisted set, so nothing already checked on another page gets lost
-            $table.find('input.checkboxGroups[name="SelectedIngredientIds"]').removeAttr('name');
-            var $form = $(this);
-            persistedIds.forEach(function (id) {
-                $('<input>').attr({ type: 'hidden', name: 'SelectedIngredientIds', value: id }).appendTo($form);
-            });
+        initPersistedCheckboxSelection({
+            gridSelector: '#ingredients-popup-grid',
+            formSelector: '#ingredient-composition-add-popup-form',
+            hiddenFieldName: 'SelectedIngredientIds'
         });
     });
 </script>
