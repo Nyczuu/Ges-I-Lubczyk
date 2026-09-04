@@ -123,6 +123,10 @@ mechanism exists" from a filename search, and named two of the six product-to-pr
    changes (`.claude/*`, `Docs/*`) first, since they are orthogonal and mergeable alone; then one PR per
    plugin/layer in dependency order; **behaviour docs (`Docs/BusinessLogic/*`, `Docs/Glossary/*`)
    travel with the code they describe, never ahead of it.** Every PR in the stack must be green alone.
+   **Push each unit's branch and open its PR as soon as it's done — don't batch several finished units
+   in local history before the first push.** A stale `origin/develop` means the next PR's diff drags in
+   every unpushed unit, defeating the split (confirmed 2026-09-04: 8 already-shipped units sat unpushed
+   with zero PRs ever opened, so the first real PR showed ~104 files instead of 5).
 2. **Verify a subagent's work, not its summary.** A subagent's final report is a claim, not evidence.
    Run the build and tests yourself; read the diff it actually wrote. Pay particular attention to
    claims about the *environment* or an *external package* — neither the compiler nor the test suite
