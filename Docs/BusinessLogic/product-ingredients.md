@@ -83,11 +83,21 @@ modeled as a 2-level composite (soy sauce → soybean extract, wheat) rather tha
 on one row. This is the same composition mechanism used for any other nested ingredient — there is no
 second, allergen-specific relation.
 
-Allergen severity, cross-contamination warnings ("may contain traces of"), quantities/percentages,
-descending-by-weight ordering, full EU-labelling compliance, ingredient import/export, and storefront
-filtering by ingredient or allergen are explicitly **out of scope for v1** — anticipated future work the
-data model does not block, not a rejected feature. A future allergen/diet filter reads the same always-
-current `AllergenId` column and closure directly; it does not require a data model rework.
+Allergen severity, cross-contamination warnings ("may contain traces of"), quantities/percentages, full
+EU-labelling compliance, ingredient import/export, and storefront filtering by ingredient or allergen are
+explicitly **out of scope for v1** — anticipated future work the data model does not block, not a
+rejected feature. A future allergen/diet filter reads the same always-current `AllergenId` column and
+closure directly; it does not require a data model rework.
+
+**Descending-by-weight ordering is no longer out of scope** as of
+[GIL-005](../Specs/GIL-005-production-labels/spec.md): the existing per-product `ProductIngredientMapping.DisplayOrder`
+and per-composite `IngredientComposition.DisplayOrder` fields were repurposed to carry a second,
+legally-relevant meaning — descending order by weight, for GIL-005's printed product label — on top of
+their original storefront-display purpose. Nothing enforced that second meaning before GIL-005; a
+pre-ship data-quality pass confirming every existing product's and composite ingredient's `DisplayOrder`
+is actually in descending-weight order is that ticket's own responsibility, not this one's, but any
+future change to either field's semantics must account for both purposes now, not just storefront
+display.
 
 ## Nutritional values
 

@@ -232,10 +232,13 @@ public partial class BaseNopTest
         //extended to union in its assembly too.
         //Nop.Plugin.Misc.ServingSuggestions.Data.Migrations.SchemaMigration is the second such plugin (GIL-002)
         //- it also derives from Migration (not ForwardOnlyMigration) for the same reason, a real Down().
+        //Nop.Plugin.Misc.ProductionLabels.Data.Migrations.SchemaMigration is the third (GIL-005), for the
+        //identical reason - it mirrors ServingSuggestions/Data/Migrations/SchemaMigration.cs exactly.
         var mAssemblies = typeFinder.FindClassesOfType<ForwardOnlyMigration>()
             .Select(t => t.Assembly)
             .Union([typeof(global::Nop.Plugin.Misc.Ingredients.Data.Migrations.SchemaMigration).Assembly])
             .Union([typeof(global::Nop.Plugin.Misc.ServingSuggestions.Data.Migrations.SchemaMigration).Assembly])
+            .Union([typeof(global::Nop.Plugin.Misc.ProductionLabels.Data.Migrations.SchemaMigration).Assembly])
             .Distinct()
             .ToArray();
 
@@ -327,6 +330,7 @@ public partial class BaseNopTest
         services.AddScoped<global::Nop.Plugin.Misc.Ingredients.Services.IIngredientCompositionService, global::Nop.Plugin.Misc.Ingredients.Services.IngredientCompositionService>();
         services.AddScoped<global::Nop.Plugin.Misc.Ingredients.Services.IProductIngredientService, global::Nop.Plugin.Misc.Ingredients.Services.ProductIngredientService>();
         services.AddScoped<global::Nop.Plugin.Misc.ServingSuggestions.Services.IServingSuggestionService, global::Nop.Plugin.Misc.ServingSuggestions.Services.ServingSuggestionService>();
+        services.AddScoped<global::Nop.Plugin.Misc.ProductionLabels.Services.IProductionBatchService, global::Nop.Plugin.Misc.ProductionLabels.Services.ProductionBatchService>();
         services.AddTransient<IBackInStockSubscriptionService, BackInStockSubscriptionService>();
         services.AddTransient<ICategoryService, CategoryService>();
         services.AddTransient<IFilterLevelValueService, FilterLevelValueService>();

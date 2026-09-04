@@ -272,6 +272,11 @@ Defined once, in its own plugin-owned entity, and attached to any number of prod
 use for). Carries a localized name and description, and a single allergen classification from the 14 EU
 Regulation 1169/2011 Annex II allergens.
 
+`ProductIngredientMapping.DisplayOrder` carries two meanings as of
+[GIL-005](../Specs/GIL-005-production-labels/spec.md): storefront display order, and (repurposed, not a
+second field) the descending-by-weight order required on a printed product label. Keep both purposes in
+mind before changing its semantics.
+
 **Defined in code:**
 - `Ingredient`
 - `AllergenType`
@@ -300,6 +305,11 @@ prevention, and closure maintenance.
 The nesting is why no existing mechanism fits: every one of them stops at one level, or three fixed levels
 for `Filter level value` — and even that one is three flat columns, not a real parent-child tree.
 
+`IngredientComposition.DisplayOrder` carries the same dual meaning `ProductIngredientMapping.DisplayOrder`
+now does (see `Ingredient` above): storefront display order within a composite, and — as of
+[GIL-005](../Specs/GIL-005-production-labels/spec.md), which expands composite ingredients inline on a
+printed product label — descending-by-weight order for that label's inner listing too.
+
 **Defined in code:**
 - `IngredientComposition`
 - `IngredientClosure`
@@ -327,3 +337,27 @@ load-bearing.
 **Example usage:**
 "The onion soup's serving suggestion shows it in a bread bowl with a step to add croutons just before
 serving."
+
+### Production batch
+
+**Aliases to avoid:**
+- production run (describes the event, not the record kept of it)
+- lot (the batch code *is* the lot marking, but "lot" invites conflating this with a generic inventory
+  lot-tracking feature, which this is not)
+
+**Definition:**
+An immutable record of one production run of a product — batch code (system-generated, never typed by
+staff), production date, best-before date, and quantity. Rows are never edited or overwritten: a mistake
+is corrected by creating a new row, so the history stays a true audit trail for traceability/recall.
+`ProductionLabels` is the plugin that owns this record and the printable PDF label generated from a
+chosen batch. See [Business logic](../BusinessLogic/product-production-labels.md) for the full
+lifecycle, including the delete-lock rule (a batch a label was already generated from cannot be deleted)
+and why generating a label is blocked rather than degraded when a product's ingredient composition would
+otherwise need real truncation.
+
+**Defined in code:**
+- `ProductionBatch`
+
+**Example usage:**
+"The onion soup batch produced on 2026-09-03 got the code 20260903-001; its label was already generated,
+so that row can no longer be deleted."

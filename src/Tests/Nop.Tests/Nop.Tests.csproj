@@ -28,6 +28,7 @@
     <ProjectReference Include="..\..\Presentation\Nop.Web\Nop.Web.csproj" />
     <ProjectReference Include="..\..\Plugins\Nop.Plugin.Misc.Ingredients\Nop.Plugin.Misc.Ingredients.csproj" />
     <ProjectReference Include="..\..\Plugins\Nop.Plugin.Misc.ServingSuggestions\Nop.Plugin.Misc.ServingSuggestions.csproj" />
+    <ProjectReference Include="..\..\Plugins\Nop.Plugin.Misc.ProductionLabels\Nop.Plugin.Misc.ProductionLabels.csproj" />
   </ItemGroup>
 
   <ItemGroup>

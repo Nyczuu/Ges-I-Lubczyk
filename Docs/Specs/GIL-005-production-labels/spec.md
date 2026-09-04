@@ -680,9 +680,14 @@ mirror. No further domain decisions made here — only how the approved design b
 
 ### Infrastructure
 
-- **`Infrastructure/NopStartup.cs`** — registers `IProductionBatchService`, `IProductionLabelModelFactory`,
-  `ProductionLabelsAdminModelFactory`. The `IHtmlToPdfConverter` registration line is commented/deferred
-  pending the library choice.
+- **`Infrastructure/NopStartup.cs`** (registration calls in a sibling `PluginServiceRegistrar.cs`, split
+  during implementation for an unrelated sandbox-tooling reason — still one `INopStartup`, see the
+  post-implementation gate note below) — registers `IProductionBatchService`,
+  `IProductionLabelModelFactory`, `ProductionLabelsAdminModelFactory`. **Reconciled post-implementation:**
+  `IHtmlToPdfConverter` is not left unregistered — the gate's first round found that leaving it
+  unregistered broke every admin action, not just label generation, so it's registered against a
+  placeholder (`NotYetAvailableHtmlToPdfConverter`, throws a clear `NopException` from `ConvertAsync`)
+  until the real library choice lands.
 - **`Infrastructure/RouteProvider.cs`** — `Admin/ProductionLabels/List` → `ProductionLabelsAdminController.List`.
 - **`Infrastructure/MapperConfiguration.cs`** — `ProductionBatch` ↔ `ProductionBatchModel` (ignoring
   `ProductName`, populated by the factory, not AutoMapper).
