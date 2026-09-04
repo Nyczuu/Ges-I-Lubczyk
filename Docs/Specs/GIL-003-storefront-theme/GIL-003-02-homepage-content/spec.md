@@ -2,7 +2,7 @@
 id: GIL-003-02
 kind: Task
 title: Homepage brand-story content restyle
-status: In Progress
+status: Shipped
 parent: GIL-003
 ---
 
