@@ -2,7 +2,7 @@
 id: GIL-006
 kind: Task
 title: Default shelf-life days on product, prefilling best-before date in Production batches
-status: In Progress
+status: Shipped
 ---
 
 # Task — Default shelf-life days on product, prefilling best-before date in Production batches
@@ -692,3 +692,51 @@ test (per spec §11 — no JS test runner in this repo); verified manually per s
 **Approved by:** Mateusz Nycz (developer)
 **Date:** 2026-09-04
 **Revision notes:** none — approved as proposed.
+
+## Post-implementation gate
+
+Implemented in an isolated worktree per the plan above; independently rebuilt and re-tested by the
+orchestrating session (not just taken on the implementer's word): `dotnet build
+src/NopCommerce.sln --configuration Release` — 0 warnings, 0 errors; `dotnet test src --configuration
+Release` — 1230 passed, 0 failed, 10 skipped (pre-existing, unrelated). Every file in the diff was
+read directly and compared against the approved plan before the gate ran.
+
+Nine checks ran in parallel against the diff: `reviewer`, `test-engineer`, `integration-auditor`, and
+six standards-check skills (`upgrade-safety-detector`, `migration-standards-check`,
+`plugin-standards-check`, `admin-ui-standards-check`, `localization-standards-check`,
+`security-permissions-check`). `deployment-standards-check` and `theming-standards-check` were not
+triggered (no Dockerfile/appsettings/disk-write change; no storefront/theme surface — this plugin has
+none).
+
+**Result: 9/9 Pass, zero Blocking findings.**
+
+Non-blocking notes surfaced, all already accounted for rather than left open:
+- `upgrade-safety-detector` and `reviewer` both flagged that `SaveProductInfo` gaining its first-ever
+  `ModelState.IsValid` check is a genuine behavior change to an existing action (previously no
+  validation ran there at all) — correctly identified as intentional and already signed off in the
+  approved technical design (the correction ddd-modeler made at Gate 1), not a new defect.
+- `security-permissions-check` confirmed the new `GetDefaultShelfLifeDays` endpoint has no
+  product/store/vendor-level authorization beyond the blanket permission check — verified this matches
+  the pre-existing sibling action (`ProductionBatchCreatePopup`) it's modeled after exactly; this
+  plugin has no ownership/store-scoping concept anywhere, so this isn't a gap introduced here.
+- `test-engineer`: two minor, non-blocking coverage notes — the new locale-only migration has no
+  dedicated test, matching the accepted repo-wide precedent for this exact migration shape
+  (`NutritionalValuesMigration` has none either); and `PrepareProductionBatchModelAsync`'s
+  `productId > 0` + "no default configured" combination is only inferable by composing two other
+  passing tests rather than asserted directly. Neither blocks release.
+- `reviewer`: suggested `Docs/Glossary/shop.md` could get an entry for the new concept — judged
+  optional and not acted on here, since this is an admin/plugin-internal convenience field, not new
+  shop-wide vocabulary, and the spec's own Documentation impact section (§12) scoped doc updates to
+  `Docs/BusinessLogic/product-production-labels.md` only (done, in the same diff).
+- `integration-auditor` release-readiness checklist: (1) manual browser verification of the client-side
+  prefill/no-clobber JS — still open, per spec §11's own flag that this repo's test stack cannot cover
+  it; (2) confirmation that `App_Data/plugins.json` persists across this environment's ECS rolling
+  deploys, since that's what makes `PluginService.UpdatePluginsAsync()`'s version-diff detection fire —
+  an infrastructure question outside this repo's own files, carried forward as a deployment
+  precondition rather than resolved here (same posture the spec already took toward this exact
+  mechanism); (3) confirmed the BusinessLogic doc update landed in the same diff — done.
+
+**Final state:** 1230 tests passing, 0 failures (independently verified, not only via subagent report).
+Ships with one open, explicitly-flagged follow-up: manual browser verification of the client-side
+prefill/no-clobber behavior, consistent with the same posture GIL-005 already took for its own
+JS-adjacent admin flows.
