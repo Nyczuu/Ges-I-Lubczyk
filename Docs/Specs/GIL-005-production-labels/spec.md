@@ -2,7 +2,7 @@
 id: GIL-005
 kind: Task
 title: Production batches and printable PDF labels per product
-status: Ready
+status: In Progress
 ---
 
 # Task — Production batches and printable PDF labels per product
@@ -397,3 +397,212 @@ implementation, rather than carrying it as an unverified assumption further into
 meaningful image-size increase (~100-170MB) whichever route is chosen; no hard cap has been set.
 
 Immediate rollout once merged — no staged flag needed at this scope.
+
+## Technical design (ddd-modeler)
+
+Every load-bearing citation in this spec was re-verified against current on-disk source (not re-trusted
+from the spec's own prose) before this design was written — no corrections were needed; every citation
+checked out exactly.
+
+### Placement
+
+`Nop.Plugin.Misc.ProductionLabels`, `IMiscPlugin` **and** `IWidgetPlugin`, registering only
+`AdminWidgetZones.ProductDetailsBlock` — confirmed this zone already hosts both Ingredients' and
+ServingSuggestions' own admin cards side by side today, so a third occupant is the same mechanism, not a
+new one.
+
+`.csproj` needs a `ProjectReference` to `Nop.Plugin.Misc.Ingredients.csproj` — **the first
+plugin-to-plugin `ProjectReference` in this codebase** (every existing plugin `.csproj` references only
+`Nop.Web`/`Nop.Web.Framework`). Verified safe against `WebAppTypeFinder.InitData()`, which skips loading
+a duplicate assembly by `AssemblyName.FullName` — only one `Assembly` object is ever loaded, and this
+holds because both plugins always build from the same `.sln` in the same Docker build step. Real
+residual fragility: neither plugin's service/repository classes are marked `internal`, so "reference the
+interface, not the internals" is convention-enforced, not compiler-enforced.
+
+### Domain model
+
+```csharp
+public class ProductionBatch : BaseEntity
+{
+    public int ProductId { get; set; }
+    public string BatchCode { get; set; }
+    public DateTime ProductionDateUtc { get; set; }
+    public DateTime BestBeforeDateUtc { get; set; }
+    public int Quantity { get; set; }
+    public DateTime? LabelGeneratedOnUtc { get; set; }
+    public DateTime CreatedOnUtc { get; set; }
+}
+```
+
+`Data/Mapping/Builders/ProductionBatchBuilder.cs` explicitly maps only `ProductId`
+(`.AsInt32().ForeignKey<Product>()`, default `Rule.Cascade` — verified inert regardless, since `Product`
+is `ISoftDeletedEntity` and `ProductService.DeleteProductAsync` only ever issues a soft-delete `UPDATE`,
+never a physical `DELETE`) and `BatchCode` (`.AsString(50).NotNullable()`); every other column
+auto-maps correctly from its C# type via `FluentMigratorExtensions`, the same convention
+`IngredientBuilder.cs` already relies on.
+
+No `Update` method exists anywhere in the service — rows are immutable per spec, so there is
+deliberately no update path to omit-by-forgetting. Invariants enforced in the service, not the schema:
+`BestBeforeDateUtc > ProductionDateUtc`; `Quantity > 0`; delete rejected once
+`LabelGeneratedOnUtc.HasValue` — all via `NopException`, the established idiom for service-layer
+business-rule rejection in this codebase (`IngredientCompositionService.ValidateNewEdgeAsync`,
+`IngredientService.DeleteIngredientAsync`). `BatchCode` has no `.Unique()` constraint, matching the
+spec's "uniqueness is a consequence of generation."
+
+Migration: `[NopMigration("2026-09-03 00:00:00", "Misc.ProductionLabels schema", MigrationProcessType.Installation)]`,
+`Up()` → `this.CreateTableIfNotExists<ProductionBatch>()`, `Down()` →
+`this.DeleteTableIfExists<ProductionBatch>()` — mirrors `ServingSuggestions/SchemaMigration.cs` exactly.
+
+### Extension decisions (re-verified)
+
+1. **`ProductionBatch` is a new entity/table**, not an existing mechanism — `GenericAttribute` doesn't
+   fit a per-product list of many dated, orderable rows; `ProductTag`/`SpecificationAttribute`/
+   `ProductAttribute` all fail the "repeating, immutable, per-product, listed/sorted/filtered by date"
+   requirement the same way the spec already reasoned.
+2. **`GenericAttribute` per (product, language)** for storage conditions/country of origin — re-verified
+   the write-path claim precisely: `ILocalizedEntityService.SaveLocalizedValueAsync<T,TPropType>` takes
+   an `Expression<Func<T,TPropType>>` and throws `ArgumentException` unless it resolves to a real
+   `PropertyInfo` on `T`, confirmed verbatim against `LocalizedEntityService.cs:244-253`. Since `Product`
+   has no such property (and adding one would contradict the zero-core-touch decision), `LocalizedProperty`
+   genuinely has no usable write path here — the spec's conclusion holds exactly as stated.
+
+### Services — two, deliberately split
+
+- **`IProductionBatchService`** — CRUD/listing only, owns no Ingredients/Store/GenericAttribute reads.
+  `GetAllProductionBatchesAsync(int? productId, pageIndex, pageSize)` — newest-first, one shared search
+  model (`ProductionBatchSearchModel : BaseSearchModel` with an optional `ProductId`) driving both admin
+  surfaces, modeled on the real existing core precedent `ProductReviewSearchModel.SearchProductId` (used
+  by `ProductReviewModelFactory` for the identical "scope an otherwise-global admin list to one product"
+  shape). **Uncached** — plain repository queries, not the `GetByIdAsync(id, cache => ...)` shortcut,
+  since even `cache => default` routes through the long-lived static cache manager and would need its own
+  cache-invalidation consumer, which the spec explicitly doesn't want here.
+  `InsertProductionBatchAsync` validates, generates `BatchCode`, stamps `CreatedOnUtc`.
+  `DeleteProductionBatchAsync` throws `NopException` if already labeled; plain check-then-act, no
+  transaction (matches the spec's explicit last-write-wins posture for this race).
+  `MarkLabelGeneratedAsync` sets `LabelGeneratedOnUtc = DateTime.UtcNow`; called from exactly one place.
+
+  **`BatchCode` format**: `{ProductionDateUtc:yyyyMMdd}-{counter:D3}` (e.g. `20260903-001`). Counter =
+  `1 + MAX` of the existing numeric suffix for `(ProductId, ProductionDateUtc.Date)`, deliberately
+  **not** `COUNT` — since unlabeled batches can be deleted, `COUNT` would produce a genuine (not merely
+  racy) duplicate whenever a middle batch of the day is deleted and a new one added afterward. No
+  serializable transaction around the read-then-insert; a truly simultaneous double-insert could
+  theoretically collide, accepted under the same "not worth more, given manual-admin-action volume" bar
+  the spec already sets for the delete race.
+
+- **`IProductionLabelModelFactory`** — pure content assembly, no PDF dependency (matches spec §11's own
+  separate "label data assembly" test grouping). Walks the ingredient graph with a **new, parallel**
+  recursive builder rather than reusing `IngredientsViewComponent.BuildNodeAsync` (that method is
+  `protected` on a storefront view component, outside the sanctioned public-interface reuse surface, and
+  its output model carries no `AllergenType`) — but calls the *exact same three public methods* the
+  storefront already chains (`GetDirectIngredientsByProductIdAsync` → `GetCompositionsReachableFromAsync`
+  → `GetIngredientsByIdsAsync`), confirming zero Ingredients-side change is needed. Recursion bound reads
+  `IngredientsDefaults.MaxCompositionDepth` rather than a hardcoded `3`. Truncation check mirrors
+  `BuildNodeAsync`'s own guard, inverted: throws `NopException` only when a node at the depth boundary
+  still has recorded child edges (real truncation) — confirmed via `IngredientCompositionService.
+  ValidateNewEdgeAsync` that legitimately-entered data can reach exactly depth 3 but never exceed it, so
+  this throw path is unreachable for good data, matching the spec's own claim precisely. Ordering:
+  `GetCompositionsReachableFromAsync`/`GetDirectIngredientsByProductIdAsync` already return
+  `DisplayOrder`-sorted lists, and grouping an already-sorted list preserves order (`Enumerable.GroupBy`),
+  so the factory groups rather than re-sorts at either level. Reads `Ingredient.Name`/`Description` via
+  `GetLocalizedAsync` with an **explicit, non-null `languageId`** end to end (the storefront passes none,
+  falling back to the ambient working language — this factory must not).
+
+  **Graceful degrade when Ingredients is uninstalled** (added after Gate 1, developer-requested):
+  the three-call ingredient-read chain is extracted into its own method and wrapped in
+  `catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UndefinedTable)`, returning an
+  empty ingredient list — reusing the same empty-list path the already-designed zero-ingredients case
+  renders, not a second, separately-maintained "empty because of an error" shape — plus one
+  `_logger.WarningAsync(...)` line so an operator can discover why a label lost its ingredients section.
+  Scoped deliberately narrow: `PostgresException` (not the broader `NpgsqlException`) excludes genuine
+  connection failures, which typically never reach a structured server ERROR response; the `SqlState`
+  filter excludes other query bugs (wrong column, syntax error carry different SQLSTATEs); and the catch
+  is physically scoped to only the Ingredients-table calls, so a schema problem on this plugin's own
+  `ProductionBatch` table, or on `Product`/`Store`/`GenericAttribute`, still surfaces normally since those
+  reads happen elsewhere in the factory, outside this try block. No precedent for this failure class
+  exists elsewhere in the repo — this is the first. Open item carried into implementation: confirm at
+  first build that `Npgsql.PostgresException` is publicly constructible against this repo's pinned
+  Npgsql version for the unit test; if not, extract the classification into a
+  `protected virtual bool IsIngredientsSchemaMissing(Exception ex)` predicate so a test subclass can
+  substitute an easily-constructed stand-in. A real drop-the-table integration test is not achievable in
+  the existing suite (it runs on SQLite, which throws a different exception type) — treat "uninstall
+  Ingredients on the real Postgres target, then generate a label" as a manual pre-release smoke check,
+  the same treatment already given to the PDF-library assumption below. Considered and rejected:
+  declaring `DependsOnSystemNames` in `plugin.json` (would make the *admin-UI* uninstall path refuse
+  outright) — developer chose the catch alone; not adding the extra declaration.
+
+- **`IHtmlToPdfConverter`** — `Task<byte[]> ConvertAsync(string html)`. Isolates the still-open PDF
+  library choice behind one seam; page-size geometry is CSS driven by a `SizeVariant` property on the
+  label view model, not a converter-API parameter, so swapping the eventual library touches nothing else.
+
+**"Generate label" flow** (one controller action, reached from either admin surface): build the label
+model (throws on real truncation — nothing renders or stamps) → `RenderPartialViewToStringAsync` (a real,
+already-existing `BaseController` method, confirmed callable from `BasePluginController`) → convert to
+PDF (library failure propagates normally, no swallowing) → only then `MarkLabelGeneratedAsync`. The
+stamp-only-after-success ordering falls out of plain sequential code, no extra flag needed. "Product with
+zero batches blocks Generate label" needs no separate guard — the action is a per-batch-row button, so a
+product with zero rows simply has none to click.
+
+### Permissions, menu, localization
+
+Three permissions (`ProductionLabels.{View,Create,Delete}`) under `StandardPermission.Catalog`,
+`AdministratorsRoleName` default — same shape as Ingredients'/ServingSuggestions' own permission
+managers. Admin menu entry anchored `AfterMenuSystemName = "Filter level values"` — **not** off
+Ingredients' own menu item, because `BaseAdminMenuCreatedEventConsumer` silently drops a menu item with a
+missing anchor, and anchoring off Ingredients would hide "Production" from an admin who has
+`ProductionLabels.View` but lacks `Ingredients.View`, or if Ingredients is ever uninstalled. Per-language
+storage-conditions/country-of-origin editor reuses the existing `Html.LocalizedEditorAsync` UI helper
+(confirmed persistence-agnostic — it only depends on `ILocalizedModel<TLocal>.Locales`), populated via
+`ILocalizedModelFactory.PrepareLocalizedModelsAsync` across **all system-configured languages** — a
+deliberately different scope from the **label-generation-time** language picker, which is scoped to the
+*store's* configured languages per the spec's round-5 wording. `UninstallAsync` removes all three
+permissions, calls `DeleteLocaleResourcesAsync("Plugins.Misc.ProductionLabels")`, and enumerates every
+configured language to purge both `GenericAttribute` keys per language (round 7's requirement — a naive
+copy of Ingredients'/ServingSuggestions' own uninstall would miss this, since neither has per-language
+`GenericAttribute` keys to enumerate).
+
+### Caching, events
+
+No new cache — no `ProductionBatchCacheEventConsumer`; the two `GenericAttribute` reads ride the
+existing `GenericAttributeCacheEventConsumer`/`IShortTermCacheManager` machinery unchanged. No new events
+published or consumed beyond the standard `EntityInserted/Updated/DeletedEvent<ProductionBatch>`; no
+`EntityDeletedEvent<Product>` consumer, deliberately, so batches outlive a discontinued product.
+
+### Blast radius
+
+`AdminWidgetZones.ProductDetailsBlock` and `StandardPermission.Catalog` are both already shared by
+multiple existing plugins/features — purely additive here. New `GenericAttribute` keys are
+uniquely prefixed, grepped for collisions, none found. `IIngredientService`/`IProductIngredientService`
+gain a new read-only caller with unchanged contracts. **The one genuinely new risk**: this is the first
+plugin with a hard *runtime* DI dependency on another plugin's service — addressed by the graceful-degrade
+catch above, which is why that addition exists.
+
+### Installed-store impact
+
+One new, empty table on fresh or existing installs (purely additive, safe under a rolling ECS deploy).
+New, uniquely-keyed `GenericAttribute` rows — no existing rows touched. Three new permission rows,
+auto-installed, not retroactively granted to any non-Administrator role. New locale keys under a
+plugin-unique prefix, with uninstall purging every language variant of both `GenericAttribute` keys.
+Zero storefront impact — no `PublicWidgetZones` entry at all. No new settings.
+
+### Pre-ship blocking item (carried forward from the spec, not optional)
+
+Before this ships, a data-quality pass must confirm every existing product's
+`ProductIngredientMapping.DisplayOrder` **and** every composite ingredient's
+`IngredientComposition.DisplayOrder` are actually in descending-weight order — a data-audit task, not a
+code change, but it gates correctness of the label content itself.
+
+### Open questions carried into implementation
+
+- **PDF rendering library** — deliberately left open per spec §13, pending a real build-and-render smoke
+  test against the Alpine-based runtime image. `IHtmlToPdfConverter` is renderer-agnostic so the eventual
+  choice doesn't ripple elsewhere.
+- **`PostgresException` constructibility** for the graceful-degrade unit test — confirm at first build;
+  fallback (an extracted, overridable predicate) is already designed above if needed.
+
+**Approved by:** Mateusz Nycz (developer)
+**Date:** 2026-09-04
+**Revision notes:** Gate 1 approved in two parts — the base design as first proposed, then one addition
+(graceful degrade when `Nop.Plugin.Misc.Ingredients` is uninstalled while `ProductionLabels` stays
+installed) requested against a risk the base design itself surfaced. `DependsOnSystemNames` in
+`plugin.json` was considered as a further belt-and-suspenders measure and explicitly declined — the
+catch alone is the accepted mitigation.
