@@ -1,0 +1,88 @@
+@model ProductionBatchModel
+
+@{
+    Layout = "_AdminPopupLayout";
+
+    ViewBag.PageTitle = T("Plugins.Misc.ProductionLabels.ProductionBatches.AddNew").Text;
+}
+<form asp-controller="ProductionLabelsAdmin" asp-action="ProductionBatchCreatePopup"
+      asp-route-btnId="@Context.Request.Query["btnId"]"
+      asp-route-formId="@Context.Request.Query["formId"]">
+    <div class="content-header clearfix">
+        <h1 class="float-left">
+            @T("Plugins.Misc.ProductionLabels.ProductionBatches.AddNew")
+        </h1>
+        <div class="float-right">
+            <button type="submit" name="save" class="btn btn-primary">
+                @T("Admin.Common.Save")
+            </button>
+        </div>
+    </div>
+
+    <div asp-validation-summary="All"></div>
+
+    @if (ViewBag.RefreshPage == true)
+    {
+        <script>
+            try {window.opener.document.forms['@(Context.Request.Query["formId"])'].@(Context.Request.Query["btnId"]).click();}
+            catch (e){}
+            window.close();
+        </script>
+    }
+
+    <section class="content">
+        <div class="container-fluid">
+            <div class="form-horizontal">
+                <div class="cards-group">
+                    <div class="card card-default card-popup">
+                        <div class="card-body">
+                            @if (Model.AvailableProducts.Any())
+                            {
+                                <div class="form-group row">
+                                    <div class="col-sm-3">
+                                        <nop-label asp-for="ProductId" />
+                                    </div>
+                                    <div class="col-sm-9">
+                                        <nop-select asp-for="ProductId" asp-items="Model.AvailableProducts" />
+                                        <span asp-validation-for="ProductId"></span>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <input asp-for="ProductId" type="hidden" />
+                            }
+                            <div class="form-group row">
+                                <div class="col-sm-3">
+                                    <nop-label asp-for="ProductionDateUtc" />
+                                </div>
+                                <div class="col-sm-9">
+                                    <nop-editor asp-for="ProductionDateUtc" />
+                                    <span asp-validation-for="ProductionDateUtc"></span>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-sm-3">
+                                    <nop-label asp-for="BestBeforeDateUtc" />
+                                </div>
+                                <div class="col-sm-9">
+                                    <nop-editor asp-for="BestBeforeDateUtc" />
+                                    <span asp-validation-for="BestBeforeDateUtc"></span>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-sm-3">
+                                    <nop-label asp-for="Quantity" />
+                                </div>
+                                <div class="col-sm-9">
+                                    <nop-editor asp-for="Quantity" asp-required="true" />
+                                    <span asp-validation-for="Quantity"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</form>
