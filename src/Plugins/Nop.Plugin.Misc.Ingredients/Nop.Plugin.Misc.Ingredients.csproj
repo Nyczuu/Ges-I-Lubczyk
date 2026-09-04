@@ -36,6 +36,7 @@
     <None Remove="Admin\Views\_CreateOrUpdate.cshtml" />
     <None Remove="Admin\Views\_ViewImports.cshtml" />
     <None Remove="Admin\Views\_ViewStart.cshtml" />
+    <None Remove="Content\js\persisted-checkbox-selection.js" />
     <None Remove="Public\Views\Components\Ingredients.cshtml" />
     <None Remove="Public\Views\_ViewImports.cshtml" />
     <None Remove="Public\Views\_ViewStart.cshtml" />
@@ -79,6 +80,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Admin\Views\_ViewStart.cshtml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Content\js\persisted-checkbox-selection.js">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Public\Views\Components\Ingredients.cshtml">

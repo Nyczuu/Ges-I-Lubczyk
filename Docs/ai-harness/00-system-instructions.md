@@ -46,6 +46,25 @@ Scope grows when the owner grows it. Ask, or write it down as an open question �
 7. [`../knowledge-base/`](../knowledge-base/00-index.md) — deep reference for any topic above; each
    file there is scoped to one subsystem and cites verified file paths in this repo.
 
+## Core design principles
+
+Three practices override everything else about *how* code gets written, ahead of any
+nopCommerce-specific rule below:
+
+- **DRY (Don't Repeat Yourself).** The same logic copy-pasted across two files is two places to fix
+  next time, and they drift silently. This happened for real: two admin popup views each got an
+  identical ~35-line jQuery block for persisting checkbox selections across a DataTables redraw,
+  written independently in the same commit. Extract shared logic — a JS helper under the plugin's
+  `Content/js/`, a private method, a base class — the first time it's about to be written twice, not
+  after the third copy.
+- **KISS (Keep It Simple, Stupid).** Prefer the plain, obvious implementation over a clever or
+  configurable one. Match the complexity of the surrounding codebase; don't introduce a new pattern to
+  solve a problem an existing simple one already covers.
+- **YAGNI (You Aren't Gonna Need It).** Build what the current spec/task actually requires, not what
+  might be useful later. See rule 10 below for the nopCommerce-specific case of this (no defensive code
+  for scenarios the framework already prevents) — the same reasoning applies everywhere, not just
+  there: no speculative options/parameters, no extensibility hooks nobody asked for.
+
 ## Non-negotiable rules
 
 1. **Never hallucinate generic ASP.NET Core MVC or EF Core patterns.** This codebase has no
