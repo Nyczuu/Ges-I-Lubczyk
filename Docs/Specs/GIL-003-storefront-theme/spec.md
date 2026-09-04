@@ -2,7 +2,7 @@
 id: GIL-003
 kind: Epic
 title: Storefront theme reskin to Gęś i Lubczyk brand
-status: In Progress
+status: Shipped
 ---
 
 # Epic — Storefront theme reskin to Gęś i Lubczyk brand

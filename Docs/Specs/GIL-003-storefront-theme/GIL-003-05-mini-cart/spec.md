@@ -2,7 +2,7 @@
 id: GIL-003-05
 kind: Task
 title: Mini-cart restyle
-status: In Progress
+status: Shipped
 parent: GIL-003
 ---
 
