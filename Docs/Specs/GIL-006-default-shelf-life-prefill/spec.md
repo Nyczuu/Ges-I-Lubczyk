@@ -2,7 +2,7 @@
 id: GIL-006
 kind: Task
 title: Default shelf-life days on product, prefilling best-before date in Production batches
-status: Ready
+status: In Progress
 ---
 
 # Task — Default shelf-life days on product, prefilling best-before date in Production batches
@@ -244,3 +244,278 @@ overridden, remains the single source of truth once a batch is saved).
 
 None beyond the ordinary plugin deploy — no new dependency, no Docker/image change, no migration to
 run. Immediate rollout once merged, consistent with GIL-005's own posture at this scope.
+
+## Technical design (ddd-modeler)
+
+### Corrections to the spec's technical assumptions
+
+- **"Rejected at the admin validator/service layer with a normal validation error"** — verified against
+  `ProductionLabelsAdminController.SaveProductInfo`
+  (`src/Plugins/Nop.Plugin.Misc.ProductionLabels/Admin/Controllers/ProductionLabelsAdminController.cs:192-225`):
+  unlike `ProductionBatchCreatePopup` (which does check `ModelState.IsValid`, mirroring `Quantity`'s
+  double-enforcement), `SaveProductInfo` **never checks `ModelState.IsValid` at all** and has no
+  FluentValidation validator for `ProductionLabelsProductModel` today. Adding a validator alone would
+  populate `ModelState` but change nothing — the action would silently save the invalid value anyway.
+  This ticket must add the `ModelState.IsValid` check to `SaveProductInfo` itself, not just a validator
+  class.
+- **"Follows the same pattern" (the `NutritionalValuesMigration` precedent)** — verified against
+  `PluginService.cs`: `InstallPluginsAsync` runs `Installation`-type migrations, then separately calls
+  `IPlugin.InstallAsync()`; it marks `Update`-type migrations as applied **without running their
+  `Up()`** on a fresh install (`InsertPluginData`: `commitVersionOnly: true` for `Update`-type when the
+  plugin is being installed for the first time). A brand-new install of this plugin (any store
+  installing it *after* this ships) will **never execute** the new Update migration's `Up()` — it only
+  gets stamped as already-applied. The locale keys must therefore also be added to
+  `ProductionLabelsPlugin.InstallAsync()`'s dictionary, exactly as `IngredientsPlugin.InstallAsync()`
+  duplicates its own `NutritionalValuesMigration` keys
+  (`src/Plugins/Nop.Plugin.Misc.Ingredients/IngredientsPlugin.cs:127-129`). The spec's §5 wording only
+  mentions the migration; the actual precedent it cites requires both.
+
+No other deviations from the spec's stated approach — placement, extension choice (`GenericAttribute`),
+migration type, and permission reuse all match the spec's stated approach once verified.
+
+### Placement
+
+No new plugin. Extends the already-shipped `Nop.Plugin.Misc.ProductionLabels` (`IMiscPlugin`/
+`IWidgetPlugin`, unchanged). No core touch.
+
+### Domain model
+
+N/A — no new persisted entity, no schema migration. One new `GenericAttribute` key on `Product`:
+`ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey => "ProductionLabels.DefaultShelfLifeDays"`,
+value type `int?`, **not** per-language (deliberately no prefix/`{languageId}` suffix, unlike the two
+sibling keys `StorageConditionsAttributeKeyPrefix`/`CountryOfOriginAttributeKeyPrefix`).
+
+### Extension decision
+
+`GenericAttribute` on `Product` — matches the decision rule in
+`Docs/knowledge-base/04-extending-core-entities.md`: nothing filters/sorts/joins on this value; it's
+read back for exactly one product at a time. `IGenericAttributeService.SaveAttributeAsync<TPropType>`
+clears the row on a blank/null value (giving "blank = no default" for free); the entity-id read overload
+`GetAttributeAsync<TEntity, TPropType>(int entityId, string, ...)` avoids a full `Product` load for the
+new by-id read endpoint. `int?` as `TPropType` is a proven pattern elsewhere in this codebase
+(`WebWorkContext.cs:242`, `BrevoMessageService.cs:165`).
+
+Rejected alternatives, per spec: `ProductTag`/`SpecificationAttribute`/`ProductAttribute` (the latter
+would leak into storefront facets — no storefront surface exists here at all) and a schema migration
+(nothing ever needs `WHERE`/`ORDER BY` on it).
+
+### Design
+
+**`ProductionLabelsDefaults.cs`** — add the new key constant (above).
+
+**`ProductionLabelsAdminModelFactory.cs`** — one shared helper, used by the product tab, the
+product-tab batch-popup flow, and the new read endpoint:
+```csharp
+public virtual async Task<int?> GetDefaultShelfLifeDaysAsync(int productId)
+{
+    return await _genericAttributeService.GetAttributeAsync<Product, int?>(productId,
+        ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey);
+}
+```
+- `PrepareProductionLabelsProductModelAsync`: inside the existing `if (productId > 0)` block, add
+  `model.DefaultShelfLifeDays = await GetDefaultShelfLifeDaysAsync(productId);`.
+- `PrepareProductionBatchModelAsync`: add an `else` to the existing
+  `if (productId == 0) ... PrepareAvailableProductsAsync(...)` — when `productId > 0`, set
+  `model.DefaultShelfLifeDays = await GetDefaultShelfLifeDaysAsync(productId);`. A plain `if/else` on
+  one condition (product known vs. unknown at popup-open), not the fragile `Locales.Any()`-style
+  branching `SaveProductInfo` has.
+
+**`ProductionLabelsProductModel.cs`** — new flat (non-`Locales`) property:
+```csharp
+[NopResourceDisplayName("Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays")]
+public int? DefaultShelfLifeDays { get; set; }
+```
+
+**`ProductionBatchModel.cs`** — new property, not user-editable (rendered as a hidden field only, feeds
+the popup's client-side script):
+```csharp
+public int? DefaultShelfLifeDays { get; set; }
+```
+Not present on the `ProductionBatch` entity, so it needs no `MapperConfiguration.cs` change — AutoMapper
+already leaves unmatched *source* members unmapped without complaint in the model→entity direction
+(the existing precedent: `ProductName`/`AvailableProducts` are already unmapped source-only members on
+this same model).
+
+**New validator `Admin/Validators/ProductionLabelsProductValidator.cs`** (naming mirrors
+`ProductionBatchValidator`, i.e. drops "Model"):
+```csharp
+public class ProductionLabelsProductValidator : BaseNopValidator<ProductionLabelsProductModel>
+{
+    public ProductionLabelsProductValidator(ILocalizationService localizationService)
+    {
+        RuleFor(model => model.DefaultShelfLifeDays)
+            .GreaterThan(0)
+            .When(model => model.DefaultShelfLifeDays.HasValue)
+            .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.GreaterThanZero"));
+    }
+}
+```
+No manual DI registration needed — validators auto-register via
+`services.AddValidatorsFromAssemblies(...)` over every `Nop*`-prefixed assembly part
+(`src/Presentation/Nop.Web.Framework/Infrastructure/Extensions/ServiceCollectionExtensions.cs:348-353`),
+the same mechanism that already wires up `ProductionBatchValidator` with zero registration code.
+
+**`ProductionLabelsAdminController.SaveProductInfo`** — add the missing `ModelState.IsValid` check
+(correction above) and save the new field **outside** the `Locales.Any()`/fallback branch (spec's
+explicitly allowed alternative):
+```csharp
+if (!ModelState.IsValid)
+{
+    foreach (var error in ModelState.Values.SelectMany(state => state.Errors))
+        _notificationService.ErrorNotification(error.ErrorMessage);
+
+    return RedirectToAction("Edit", "Product", new { id = model.ProductId, area = AreaNames.ADMIN });
+}
+
+// ... existing if (model.Locales.Any()) { ... } else { ... } block, unchanged ...
+
+// not per-language (spec §5/§6) — saved once, regardless of which branch above ran
+await _genericAttributeService.SaveAttributeAsync(product,
+    ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey, model.DefaultShelfLifeDays);
+```
+`INotificationService.ErrorNotification` is TempData-backed, so it survives the subsequent redirect.
+**Trade-off, stated explicitly**: because this tab has no mechanism to redisplay itself with the
+just-typed values on a validation failure (it always redirects to `Product/Edit`), a rejected save
+discards *all three* fields' just-typed input for that request, not just the invalid one — the admin
+must re-enter and resubmit. This is a pre-existing architectural limit of this tab (not introduced by
+this ticket) that a validator now actually enforces.
+
+**New read endpoint**, delegating to the factory (thin controller, matching every other action here):
+```csharp
+[CheckPermission(ProductionLabelsPermissionConfigManager.PRODUCTION_LABELS_CREATE,
+    CheckPermissionAttribute.CheckPermissionResultType.Json)]
+public virtual async Task<IActionResult> GetDefaultShelfLifeDays(int productId)
+{
+    var defaultShelfLifeDays = await _productionLabelsAdminModelFactory.GetDefaultShelfLifeDaysAsync(productId);
+
+    return Json(new { DefaultShelfLifeDays = defaultShelfLifeDays });
+}
+```
+No `[HttpPost]` (matches the existing unattributed GET actions in this controller — `List()`,
+`ProductionBatchCreatePopup(int)`). The explicit `CheckPermissionResultType.Json` is a verified,
+non-obvious necessity: `CheckPermissionAttribute`'s default resolution maps **every** GET request to
+`Html` (a redirect to `AccessDenied`) regardless of whether it's an AJAX call — without this override,
+a permission failure on this JSON endpoint would hand the popup's `$.ajax` call an HTML redirect body
+instead of JSON. No new route registration needed — the generic
+`{area:exists}/{controller}/{action}/{id?}` route already covers it, the same way every other action on
+this controller (bar `List`) resolves today.
+
+**Views:**
+- `Admin/Views/Components/ProductionLabels.cshtml` — one new `form-group row` (label/`nop-editor`/
+  `asp-validation-for`) for `DefaultShelfLifeDays`, placed **outside** the
+  `Html.LocalizedEditorAsync(...)` call (it is not per-language), inside the same
+  `<form asp-action="SaveProductInfo">`.
+- `Admin/Views/ProductionBatchCreatePopup.cshtml` — add
+  `<input asp-for="DefaultShelfLifeDays" type="hidden" />` and a `<script>` block:
+  - Both date inputs are native `<input type="date">` (`EditorTemplates/Date.cshtml`), format
+    `yyyy-MM-dd` — no datepicker plugin involved, so the JS is plain string/Date arithmetic.
+  - Track a `bestBeforeManuallyEdited` flag set only by a genuine `change` event on
+    `#BestBeforeDateUtc`; programmatic `.val(...)` writes from the prefill logic do not trigger
+    `change`, so the flag only flips on a real user edit — implementing the "don't clobber a manual
+    edit" default directly and correctly.
+  - On `#ProductionDateUtc` `change`: if `#DefaultShelfLifeDays` has a numeric value and
+    `bestBeforeManuallyEdited` is false, recompute and set `#BestBeforeDateUtc`.
+  - Only when `Model.AvailableProducts.Any()` (the standalone-flow branch): on `#ProductId` `change`,
+    `GET GetDefaultShelfLifeDays?productId=...`, write the result into the hidden
+    `#DefaultShelfLifeDays` field, **reset `bestBeforeManuallyEdited = false`** (developer-confirmed:
+    switching products is a fresh context, prefill should re-arm), and re-run the prefill.
+  - Failure handling: no `error` callback needed — `parseInt(undefined-or-empty, 10)` is `NaN`, which
+    the prefill function already treats as "no default," matching spec §10's failure scenario.
+
+**Migration** — `Data/Migrations/DefaultShelfLifeDaysMigration.cs`, mirroring
+`NutritionalValuesMigration.cs`:
+```csharp
+[NopMigration("2026-09-04 12:00:00", "Misc.ProductionLabels default shelf-life days", MigrationProcessType.Update)]
+public class DefaultShelfLifeDaysMigration : MigrationBase
+{
+    public override void Up()
+    {
+        if (!DataSettingsManager.IsDatabaseInstalled())
+            return;
+
+        this.AddOrUpdateLocaleResource(new Dictionary<string, string>
+        {
+            ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays"] = "Default shelf-life (days)",
+            ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.Hint"] = "The number of days from production to best-before, used to prefill new batches; leave blank for no default.",
+            ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.GreaterThanZero"] = "Default shelf-life (days) must be greater than zero."
+        });
+    }
+
+    public override void Down()
+    {
+        //nothing - forward-only
+    }
+}
+```
+Timestamp only needs to sort after `SchemaMigration`'s `2026-09-04 00:00:00` and be unique; exact value
+is `implementation-planner`'s call. `this.AddOrUpdateLocaleResource` is the synchronous `IMigration`
+extension (`src/Presentation/Nop.Web.Framework/Extensions/MigrationExtensions.cs:213`), confirmed
+distinct from `ILocalizationService.AddOrUpdateLocaleResourceAsync` — matches the spec's own
+correction.
+
+**`ProductionLabelsPlugin.cs`**:
+- `InstallAsync()` — add the **same three keys** to its dictionary (the correction above — required for
+  fresh installs, since `MigrationProcessType.Update` never runs `Up()` at install time).
+- `UninstallAsync()` — one bulk sweep, **not** per-language (per spec §7, the simpler of the two allowed
+  options):
+  ```csharp
+  await _genericAttributeService.DeleteAttributesAsync<Product>(ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey);
+  ```
+  `DeleteAttributesAsync<TEntity>(string key)` is a single `DELETE ... WHERE Key = @key AND KeyGroup =
+  @keyGroup` — no per-product iteration needed.
+
+**`plugin.json`** — bump `Version` from `5.00.1` to `5.00.2` (same patch-bump convention
+`Nop.Plugin.Misc.Ingredients` used for its own analogous change).
+
+**Permissions** — no new permission. `SaveProductInfo` stays gated by `PRODUCTION_LABELS_CREATE`
+(unchanged); the new read endpoint is gated by the same, matching `ProductionBatchCreatePopup`'s own
+gate.
+
+**Documentation** — `Docs/BusinessLogic/product-production-labels.md` needs a new section (after
+"Storage conditions and country of origin are per-product, per-language admin input") documenting:
+optional, per-product (not per-language), admin-only, drives only a client-side prefill, never itself
+persisted onto a `ProductionBatch` row.
+
+### Simplicity check
+
+Smallest version that works: one `GenericAttribute` key, one factory helper reused three ways, one
+validator, one controller `ModelState` check that should already have existed, one thin JSON read
+action, client-side date math against native `<input type="date">` values (no datepicker library to
+fight), one Update migration + `InstallAsync` duplication for the locale strings. The only things beyond
+a bare minimum are the `ModelState.IsValid` addition to `SaveProductInfo` (necessary to make the spec's
+own "reject, don't clamp" requirement real) and the `CheckPermissionResultType.Json` override
+(necessary for the new endpoint to fail as JSON instead of an HTML redirect body). Nothing else was
+added speculatively.
+
+### Blast radius
+
+`IGenericAttributeService`, `AddOrUpdateLocaleResource`/`AddOrUpdateLocaleResourceAsync`,
+`MigrationProcessType.Update`, `CheckPermissionAttribute` — all shared, generic core mechanisms; this
+change only adds new call-site usages, it does not alter their behavior for any other caller.
+`SaveProductInfo`'s new `ModelState.IsValid` check is scoped to this one action; it does not touch
+`ProductionBatchCreatePopup`'s existing, separate check. `ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey`
+is a new, uniquely-prefixed key — grepped against the existing sibling key usages, no collision and no
+other reader of this new key exists anywhere else in the solution.
+
+### Installed-store impact
+
+**Schema**: none — `GenericAttribute` is schema-free. **Locale resources**: a store already running
+`Misc.ProductionLabels` (GIL-005) will not see the new keys until `plugin.json`'s version bump is
+deployed and `PluginService.UpdatePluginsAsync()` detects the version mismatch on next app start,
+running `DefaultShelfLifeDaysMigration.Up()`. Until then the field is simply absent from the admin UI
+(no visible gap, since it doesn't exist in already-deployed code either). **Rolling deploy (ECS)**:
+safe — same pattern already shipped for `NutritionalValuesMigration` in this exact environment; nothing
+structural changes, so a task briefly running old code alongside one that already migrated is
+unaffected. **Existing products**: none has the new `GenericAttribute` row until an admin opts in.
+**Uninstall**: the new sweep removes every product's `DefaultShelfLifeDays` row.
+
+### Resolved during Gate 1
+
+Switching the selected product in the standalone popup's dropdown **resets** the "manually edited
+Best-before date" flag — developer-confirmed: a new product selection is a fresh context, so the
+prefill re-arms until the admin manually edits Best-before again for that product.
+
+**Approved by:** Mateusz Nycz (developer)
+**Date:** 2026-09-04
+**Revision notes:** none — approved as proposed, with one open UX question (reset-on-product-change)
+resolved inline during Gate 1 rather than sent back for a second `ddd-modeler` pass.
