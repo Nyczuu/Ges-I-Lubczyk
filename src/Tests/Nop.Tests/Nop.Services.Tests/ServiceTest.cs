@@ -9,6 +9,7 @@ using Nop.Core.Infrastructure;
 using Nop.Data.Configuration;
 using Nop.Data.Migrations;
 using Nop.Plugin.Misc.Ingredients;
+using Nop.Plugin.Misc.ProductionLabels;
 using Nop.Plugin.Misc.ServingSuggestions;
 using Nop.Services.Configuration;
 using Nop.Services.Plugins;
@@ -106,6 +107,14 @@ public abstract class ServiceTest : BaseNopTest
                     FriendlyName = "Serving suggestions",
                     Installed = true,
                     ReferencedAssembly = typeof(ServingSuggestionsPlugin).Assembly
+                }, true),
+                (new PluginDescriptor
+                {
+                    PluginType = typeof(ProductionLabelsPlugin),
+                    SystemName = ProductionLabelsDefaults.SystemName,
+                    FriendlyName = "Production labels",
+                    Installed = true,
+                    ReferencedAssembly = typeof(ProductionLabelsPlugin).Assembly
                 }, true)
             }
         };
@@ -126,6 +135,7 @@ public abstract class ServiceTest : BaseNopTest
         var migrationManager = GetService<IMigrationManager>();
         migrationManager.ApplyUpMigrations(typeof(IngredientsPlugin).Assembly, MigrationProcessType.Installation);
         migrationManager.ApplyUpMigrations(typeof(ServingSuggestionsPlugin).Assembly, MigrationProcessType.Installation);
+        migrationManager.ApplyUpMigrations(typeof(ProductionLabelsPlugin).Assembly, MigrationProcessType.Installation);
     }
 }
 

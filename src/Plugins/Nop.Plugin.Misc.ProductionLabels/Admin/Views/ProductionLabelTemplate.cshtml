@@ -1,0 +1,122 @@
+@model ProductionLabelModel
+@using Nop.Plugin.Misc.Ingredients.Domain
+
+@{
+    Layout = null;
+
+    //renders fully expanded inline, EU-label style (same as Nop.Plugin.Misc.Ingredients' own storefront
+    //Public/Views/Components/Ingredients.cshtml), with allergens emphasized per EU 1169/2011. The
+    //ingredient name is HTML-encoded explicitly before this function wraps it in markup it controls
+    //itself, so the final composed string is safe to render with Html.Raw at the call site below -
+    //StorageConditions/CountryOfOrigin below take the opposite, simpler path: plain @-encoding, never
+    //Html.Raw, since nothing about them needs markup.
+    string RenderIngredientNode(ProductionLabelIngredientModel node)
+    {
+        var encodedName = HtmlEncoder.Default.Encode(node.Name ?? string.Empty);
+        var display = node.AllergenType != AllergenType.None ? $"<strong>{encodedName}</strong>" : encodedName;
+
+        if (!node.Children.Any())
+            return display;
+
+        return $"{display} ({string.Join(", ", node.Children.Select(RenderIngredientNode))})";
+    }
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>@Model.ProductName - @Model.BatchCode</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .label {
+            box-sizing: border-box;
+            padding: 6mm;
+        }
+
+        /* geometry only differs between the two preset variants - content and layout are identical */
+        .label.size-smalljar {
+            width: 70mm;
+            height: 70mm;
+            font-size: 7pt;
+        }
+
+        .label.size-largejar {
+            width: 100mm;
+            height: 100mm;
+            font-size: 9pt;
+        }
+
+        .product-name {
+            font-weight: bold;
+            font-size: 1.3em;
+            margin-bottom: 2mm;
+        }
+
+        .section {
+            margin-bottom: 2mm;
+        }
+
+        .section .label-title {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="label size-@(Model.SizeVariant.ToString().ToLowerInvariant())">
+        <div class="product-name">@Model.ProductName</div>
+
+        @if (Model.Ingredients.Any())
+        {
+            <div class="section ingredients">
+                <span class="label-title">@T("Plugins.Misc.ProductionLabels.Label.Ingredients"):</span>
+                @Html.Raw(string.Join(", ", Model.Ingredients.Select(RenderIngredientNode)))
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.NetQuantity))
+        {
+            <div class="section net-quantity">
+                <span class="label-title">@T("Plugins.Misc.ProductionLabels.Label.NetQuantity"):</span>
+                @Model.NetQuantity
+            </div>
+        }
+
+        <div class="section best-before">
+            <span class="label-title">@T("Plugins.Misc.ProductionLabels.Label.BestBefore"):</span>
+            @Model.BestBeforeDateUtc.ToString("yyyy-MM-dd")
+        </div>
+
+        <div class="section batch-code">
+            <span class="label-title">@T("Plugins.Misc.ProductionLabels.Label.BatchCode"):</span>
+            @Model.BatchCode
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.StorageConditions))
+        {
+            <div class="section storage-conditions">
+                <span class="label-title">@T("Plugins.Misc.ProductionLabels.Label.StorageConditions"):</span>
+                @Model.StorageConditions
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.CountryOfOrigin))
+        {
+            <div class="section country-of-origin">
+                <span class="label-title">@T("Plugins.Misc.ProductionLabels.Label.CountryOfOrigin"):</span>
+                @Model.CountryOfOrigin
+            </div>
+        }
+
+        <div class="section company">
+            @Model.CompanyName<br />
+            @Model.CompanyAddress<br />
+            @Model.CompanyPhoneNumber
+        </div>
+    </div>
+</body>
+</html>

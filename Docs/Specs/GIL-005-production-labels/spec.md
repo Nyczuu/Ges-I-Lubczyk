@@ -2,7 +2,7 @@
 id: GIL-005
 kind: Task
 title: Production batches and printable PDF labels per product
-status: In Progress
+status: Shipped
 ---
 
 # Task — Production batches and printable PDF labels per product
@@ -680,9 +680,14 @@ mirror. No further domain decisions made here — only how the approved design b
 
 ### Infrastructure
 
-- **`Infrastructure/NopStartup.cs`** — registers `IProductionBatchService`, `IProductionLabelModelFactory`,
-  `ProductionLabelsAdminModelFactory`. The `IHtmlToPdfConverter` registration line is commented/deferred
-  pending the library choice.
+- **`Infrastructure/NopStartup.cs`** (registration calls in a sibling `PluginServiceRegistrar.cs`, split
+  during implementation for an unrelated sandbox-tooling reason — still one `INopStartup`, see the
+  post-implementation gate note below) — registers `IProductionBatchService`,
+  `IProductionLabelModelFactory`, `ProductionLabelsAdminModelFactory`. **Reconciled post-implementation:**
+  `IHtmlToPdfConverter` is not left unregistered — the gate's first round found that leaving it
+  unregistered broke every admin action, not just label generation, so it's registered against a
+  placeholder (`NotYetAvailableHtmlToPdfConverter`, throws a clear `NopException` from `ConvertAsync`)
+  until the real library choice lands.
 - **`Infrastructure/RouteProvider.cs`** — `Admin/ProductionLabels/List` → `ProductionLabelsAdminController.List`.
 - **`Infrastructure/MapperConfiguration.cs`** — `ProductionBatch` ↔ `ProductionBatchModel` (ignoring
   `ProductName`, populated by the factory, not AutoMapper).
@@ -809,3 +814,48 @@ test (none exists, by design).
 **Date:** 2026-09-04
 **Revision notes:** none — approved as proposed, with the four gaps above resolved inline rather than
 sent back for a second implementation-planner pass.
+
+## Post-implementation gate
+
+Nine checks ran in parallel against the first implementation pass: `reviewer`, `test-engineer`,
+`integration-auditor`, and six standards-check skills (`upgrade-safety-detector`,
+`migration-standards-check`, `plugin-standards-check`, `admin-ui-standards-check`,
+`localization-standards-check`, `security-permissions-check`).
+
+**Round 1 found two real Blocking defects**, independently confirmed by 3-4 of the nine checks each —
+neither had a compile-time or original-test-suite symptom:
+
+1. `IHtmlToPdfConverter` had no DI registration anywhere. Since `ProductionLabelsAdminController`'s
+   constructor requires it, this broke controller activation for **every** action — batch history
+   CRUD included, not only label generation. Fixed: a placeholder `NotYetAvailableHtmlToPdfConverter`
+   (throws a clear `NopException` from `ConvertAsync`) is registered instead of leaving the line
+   commented out; every other action now works, only an actual "Generate label" click fails, and only
+   until the real library is chosen (§13, still open).
+2. `Html.LocalizedEditorAsync` renders a different template depending on how many languages are
+   configured — the tabbed template only above one language. On a single-language store (nopCommerce's
+   own out-of-the-box default), the standard template bound directly to flat properties that didn't
+   exist on `ProductionLabelsProductModel`, causing a render crash; even patched, the save action only
+   read the (empty, on that path) `Locales` collection, silently dropping the write. Fixed: added flat
+   `StorageConditions`/`CountryOfOrigin` properties populated from the resolved default language, and
+   `SaveProductInfo` now branches on whether `Locales` is populated.
+
+Also fixed in the same round: real test-coverage gaps on `ProductionLabelsAdminModelFactory` and the
+`SaveProductInfo` write path (both previously untested despite being exactly the mechanism round 3-7 of
+this spec's own intake spent the most effort getting right), a cleanup-ordering bug in one test risking
+leaked rows on failure, two missing `[NopResourceDisplayName]` attributes, and two orphaned locale keys.
+
+**Round 2** (reviewer, test-engineer, localization-standards-check re-run against the fixes) found no
+Blocking issues; both defects confirmed genuinely resolved by independent trace plus executed tests
+(including a real test run against a single-language database for defect 2). Three narrower,
+non-blocking coverage gaps remained on `ProductionLabelsAdminModelFactory`'s other prepare-methods.
+
+**Final polish** closed two of those three. The third — a real assertion on the admin batch list's
+`ProductName` backfill join — hit a genuine, documented limitation of this test harness: Mapster's
+shared static `TypeAdapterConfig` has no per-type-pair isolation, so any real `.ToModel()` call in a new
+test collides with the pre-existing `AdminMapperConfigurationTest.ConfigurationIsValid`. Left open with
+the reasoning recorded in the test file's own comment, rather than forcing a fragile workaround or
+touching the shared core test out of scope.
+
+**Final state:** 1225 tests, 0 failures (verified independently, not only via subagent report). Ships
+with two known, non-blocking follow-ups: the `IHtmlToPdfConverter` library choice itself, and the
+pre-ship `DisplayOrder` data-quality pass (§5) — neither is code, both are already tracked above.
