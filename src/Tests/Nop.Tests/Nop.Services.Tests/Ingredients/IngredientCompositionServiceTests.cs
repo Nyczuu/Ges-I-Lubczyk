@@ -180,6 +180,36 @@ public class IngredientCompositionServiceTests : ServiceTest
     }
 
     [Test]
+    public async Task GetCompositeIngredientIdsAsync_ReturnsOnlyIngredientsWithAtLeastOneDirectChild()
+    {
+        var parent = await CreateAsync("Composite check test parent");
+        var child = await CreateAsync("Composite check test child");
+        var leaf = await CreateAsync("Composite check test leaf");
+
+        await _ingredientCompositionService.AddChildIngredientAsync(parent.Id, child.Id);
+
+        var compositeIds = await _ingredientCompositionService.GetCompositeIngredientIdsAsync(
+            new[] { parent.Id, child.Id, leaf.Id });
+
+        //cleanup
+        await _ingredientCompositionService.RemoveChildIngredientAsync(
+            (await _ingredientCompositionService.GetChildCompositionsAsync(parent.Id)).Single());
+        await _ingredientService.DeleteIngredientAsync(leaf);
+        await _ingredientService.DeleteIngredientAsync(child);
+        await _ingredientService.DeleteIngredientAsync(parent);
+
+        compositeIds.Should().ContainSingle().Which.Should().Be(parent.Id);
+    }
+
+    [Test]
+    public async Task GetCompositeIngredientIdsAsync_ReturnsEmpty_WhenGivenNoIngredientIds()
+    {
+        var compositeIds = await _ingredientCompositionService.GetCompositeIngredientIdsAsync(Array.Empty<int>());
+
+        compositeIds.Should().BeEmpty();
+    }
+
+    [Test]
     public void IsSerializationFailure_ReturnsTrue_ForASerializationFailurePostgresException()
     {
         var exception = new PostgresException("could not serialize access due to concurrent update",

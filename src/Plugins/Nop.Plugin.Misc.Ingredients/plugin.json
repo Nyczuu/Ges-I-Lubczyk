@@ -2,7 +2,7 @@
   "Group": "Misc",
   "FriendlyName": "Ingredients",
   "SystemName": "Misc.Ingredients",
-  "Version": "5.00.2",
+  "Version": "5.00.3",
   "SupportedVersions": [ "5.00" ],
   "Author": "Ges I Lubczyk",
   "DisplayOrder": 1,

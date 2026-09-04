@@ -52,6 +52,32 @@ The `NopTarget` post-build target invoking `Build/ClearPluginAssemblies.proj` is
 target from a sibling plugin. Related: `CopyLocalLockFileAssemblies` set to `true` when the plugin has no
 NuGet dependencies that need it.
 
+## Building a single plugin `.csproj` directly fails with cascading "namespace does not exist" errors
+
+Symptom: `dotnet build src/Plugins/Nop.Plugin.{Group}.{Name}/Nop.Plugin.{Group}.{Name}.csproj` (invoked
+directly, not through `src/NopCommerce.sln`) fails with a pile of `CS0234`/`CS0246` errors against types
+that obviously exist — `ILocalizationService`, `IRepository<>`, `Nop.Web.Areas.Admin...` — even right
+after a full `dotnet restore src/NopCommerce.sln`. Looks exactly like a broken reference in the code just
+written; it is not.
+
+Cause: every plugin's `.csproj` declares its `ProjectReference` to `Nop.Web.csproj` as
+`$(SolutionDir)\Presentation\Nop.Web\Nop.Web.csproj`. `$(SolutionDir)` is only populated by MSBuild when
+the build entry point is the `.sln` itself. Build the plugin `.csproj` on its own and `$(SolutionDir)` is
+empty, so that direct reference silently fails to resolve — the plugin's *transitive* dependencies
+(`Nop.Core`, `Nop.Data`, `Nop.Services`, `Nop.Web.Framework`) still build fine because restore already
+flattened those into the plugin's `project.assets.json`, which is what makes the failure look selective
+and confusing rather than a flat "can't find the project" error.
+
+Fix, in order of preference:
+
+1. Build via the solution, per [`AGENTS.md`](../../../AGENTS.md#how-to-verify) — sidesteps the problem
+   entirely and is the documented way to verify a change.
+2. If a fast, scoped rebuild of one plugin is genuinely needed, pass `$(SolutionDir)` explicitly as an
+   **absolute** path with a trailing separator:
+   `dotnet build src/Plugins/Nop.Plugin.{Group}.{Name}/Nop.Plugin.{Group}.{Name}.csproj -p:SolutionDir=<absolute-path-to-src>\`
+   A relative value (e.g. `src\`) does not work — MSBuild evaluates it relative to the project file's own
+   directory, not the shell's working directory, so it silently reproduces the same failure.
+
 ## Thousands of errors, all NU1301 / 401 against a feed that is not nuget.org
 
 ```

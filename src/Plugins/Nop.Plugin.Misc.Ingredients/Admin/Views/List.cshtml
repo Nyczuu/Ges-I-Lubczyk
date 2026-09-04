@@ -65,6 +65,41 @@
                                 {
                                     Title = T("Plugins.Misc.Ingredients.Fields.Name").Text
                                 },
+                                new ColumnProperty(nameof(IngredientModel.IsComposition))
+                                {
+                                    Title = T("Plugins.Misc.Ingredients.Fields.IsComposition").Text,
+                                    Width = "150",
+                                    ClassName = NopColumnClassDefaults.CenterAll,
+                                    Render = new RenderBoolean()
+                                },
+                                new ColumnProperty(nameof(IngredientModel.AllergenName))
+                                {
+                                    Title = T("Plugins.Misc.Ingredients.Fields.Allergen").Text
+                                },
+                                new ColumnProperty(nameof(IngredientModel.CaloriesPer100g))
+                                {
+                                    Title = T("Plugins.Misc.Ingredients.Fields.CaloriesPer100g").Text,
+                                    Width = "150",
+                                    ClassName = NopColumnClassDefaults.CenterAll
+                                },
+                                new ColumnProperty(nameof(IngredientModel.ProteinPer100g))
+                                {
+                                    Title = T("Plugins.Misc.Ingredients.Fields.ProteinPer100g").Text,
+                                    Width = "150",
+                                    ClassName = NopColumnClassDefaults.CenterAll
+                                },
+                                new ColumnProperty(nameof(IngredientModel.FatPer100g))
+                                {
+                                    Title = T("Plugins.Misc.Ingredients.Fields.FatPer100g").Text,
+                                    Width = "150",
+                                    ClassName = NopColumnClassDefaults.CenterAll
+                                },
+                                new ColumnProperty(nameof(IngredientModel.CarbohydratePer100g))
+                                {
+                                    Title = T("Plugins.Misc.Ingredients.Fields.CarbohydratePer100g").Text,
+                                    Width = "150",
+                                    ClassName = NopColumnClassDefaults.CenterAll
+                                },
                                 new ColumnProperty(nameof(IngredientModel.Id))
                                 {
                                     Title = T("Admin.Common.Edit").Text,

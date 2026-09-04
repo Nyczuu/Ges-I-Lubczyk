@@ -111,6 +111,25 @@ public class IngredientCompositionService : IIngredientCompositionService
     }
 
     /// <summary>
+    /// Gets which of the given ingredients are themselves composite (have at least one direct child
+    /// composition), for marking a "multi-ingredient composition" indicator in a grid without an
+    /// N+1 lookup per row
+    /// </summary>
+    public virtual async Task<IList<int>> GetCompositeIngredientIdsAsync(IEnumerable<int> ingredientIds)
+    {
+        var ids = ingredientIds?.ToArray() ?? [];
+
+        if (!ids.Any())
+            return [];
+
+        return await _ingredientCompositionRepository.Table
+            .Where(composition => ids.Contains(composition.ParentIngredientId))
+            .Select(composition => composition.ParentIngredientId)
+            .Distinct()
+            .ToListAsync();
+    }
+
+    /// <summary>
     /// Gets an ingredient composition by identifier
     /// </summary>
     public virtual async Task<IngredientComposition> GetIngredientCompositionByIdAsync(int ingredientCompositionId)
