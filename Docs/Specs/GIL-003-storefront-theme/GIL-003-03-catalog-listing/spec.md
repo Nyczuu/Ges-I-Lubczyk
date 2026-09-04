@@ -2,7 +2,7 @@
 id: GIL-003-03
 kind: Task
 title: Catalog & product listing restyle
-status: In Progress
+status: Shipped
 parent: GIL-003
 ---
 
@@ -217,12 +217,18 @@ version (two files) to match the mockup's actual layout.
   `RecentlyViewedProductsBlock`, `ProductsAlsoPurchased`, `HomepageProducts`, `HomepageBestSellers`,
   `CrossSellProducts` components — consistent styling, desirable, worth browsing beyond the category page
   once implemented.
-- The `CategoryNavigation/Default.cshtml` override applies everywhere `_ColumnsTwo.cshtml` is used:
-  Category, Manufacturer(All), Vendor(All/Reviews), ProductTags(All)/ProductsByTag,
-  Search(ByFilterLevelValues), CompareProducts, CustomerProductReviews, `RecentlyViewedProducts.cshtml`.
-  All these sidebars go from a nested tree to flat pills — broader than "category listing pages," but
-  harmless and consistent with the Task's actual title. `ProductTemplate.Simple/Grouped.cshtml` (product
-  details, GIL-003-04) use `_ColumnsOne` — confirmed unaffected, no cross-task collision.
+- **Corrected post-implementation (test-engineer/integration-auditor traced every `Layout = "_ColumnsTwo"`
+  view and which ones override `@section left`):** the `CategoryNavigation/Default.cshtml` override
+  applies everywhere `_ColumnsTwo.cshtml` renders its default sidebar — Category, Manufacturer(All),
+  `ManufacturerTemplate.ProductsInGridOrLines` (single manufacturer), Vendor(All/Info), `Vendor.cshtml`
+  (single vendor), `NewProducts.cshtml`, ProductTags(All)/ProductsByTag,
+  Search(ByFilterLevelValues), CompareProducts, `RecentlyViewedProducts.cshtml`. **Not**
+  `CustomerProductReviews.cshtml` — it defines its own `@section left { CustomerNavigationViewComponent
+  }` (the account-tabs nav), so `_ColumnsTwo`'s `else` branch never renders `CategoryNavigationViewComponent`
+  there; the original draft of this bullet listed it in error. All the actually-affected sidebars go from
+  a nested tree to flat pills — broader than "category listing pages," but harmless and consistent with
+  the Task's actual title. `ProductTemplate.Simple/Grouped.cshtml` (product details, GIL-003-04) use
+  `_ColumnsOne` — confirmed unaffected, no cross-task collision.
 - The `CategoryTemplate.ProductsInGridOrLines.cshtml` override is scoped to the category page only — no
   spillover onto Manufacturer/Vendor/Search pages from that file.
 - `Head.cshtml` registration: already covered by GIL-003-01's pre-registered six-file list — no shared
