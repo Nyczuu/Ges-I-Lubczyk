@@ -1,0 +1,256 @@
+/* Gęś i Lubczyk brand theme — catalog & product listing restyle (GIL-003-03).
+
+   Restyles the existing, unmodified Views/Shared/_ProductBox.cshtml markup (article.product-item >
+   .picture / .details > h2.product-title > .description > .add-info > .prices + .buttons) into the
+   mockup's card, the existing Views/Catalog/_ProductsInGridOrLines.cshtml grid into the mockup's CSS
+   grid, and the existing CategoryNavigationViewComponent output (both the sidebar instance and this
+   Task's new header-band instance) into the mockup's pill row. No markup change in either
+   _ProductBox.cshtml or _ProductsInGridOrLines.cshtml — both are core, unmodified files; only the two
+   theme-level view overrides this Task also adds (CategoryNavigation/Default.cshtml,
+   CategoryTemplate.ProductsInGridOrLines.cshtml) change markup, and only to flatten/duplicate the
+   category nav, not the product card or the grid wrapper.
+
+   Every rule below consumes var(--gil-*) tokens from tokens.css; no color or font is redefined here.
+
+   Specificity note: several selectors below repeat an ancestor class from the core
+   Themes/DefaultClean/Content/css/styles.css rule they replace (e.g. ".product-item .picture a img"
+   mirrors core's ".item-box .picture a img" class-and-element count) rather than a shorter selector —
+   core's fixed-aspect-ratio image trick (an absolutely-positioned <img> plus a padding-top:100%
+   pseudo-element) and its line-clamp rule both carry more specificity than the shorter form would, so a
+   shorter rule would compile and render but silently lose the cascade to the un-styled core rule. Ties
+   are resolved in this file's favor because Head.cshtml registers catalog.css after styles.css. */
+
+/* ---------------------------------------------------------------------------------------------------
+   Product card (existing _ProductBox.cshtml markup, unchanged)
+   --------------------------------------------------------------------------------------------------- */
+
+.product-item {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: var(--gil-color-cream);
+    border: 1px solid var(--gil-color-linen-dark);
+    border-radius: 24px;
+    padding: 20px;
+    box-shadow: 0 1px 2px rgba(42, 51, 46, .05);
+    transition: box-shadow .3s ease;
+}
+
+.product-item:hover {
+    box-shadow: 0 12px 28px rgba(42, 51, 46, .1);
+}
+
+.product-item .picture {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    background-color: var(--gil-color-linen);
+    margin: 0 0 16px;
+}
+
+.product-item .picture a:before {
+    content: none;
+}
+
+.product-item .picture a img {
+    position: static;
+    display: block;
+    width: 100%;
+    height: 208px;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    object-fit: cover;
+    transform: none;
+}
+
+.product-item .details {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    padding: 0;
+}
+
+.product-item .product-title {
+    margin: 0 0 8px;
+    font-family: var(--gil-font-serif);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--gil-color-sage);
+}
+
+.product-item .product-title a {
+    color: inherit;
+}
+
+.product-item .product-title a:hover,
+.product-item .product-title a:focus {
+    color: var(--gil-color-clay);
+}
+
+/* Reuses the core selector verbatim (same specificity as Themes/DefaultClean's line-clamp:3 rule) so
+   this file's line-clamp:2 wins the cascade instead of silently losing to it. */
+.product-grid .item-box .description:not([data-short-description]) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    height: auto;
+    margin: 0 0 16px;
+    font-family: var(--gil-font-sans);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--gil-color-muted);
+}
+
+.product-item .add-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--gil-color-linen-dark);
+}
+
+.product-item .prices {
+    margin: 0;
+    overflow: visible;
+}
+
+.product-item .prices .actual-price {
+    margin: 0;
+    font-family: var(--gil-font-serif);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gil-color-sage);
+}
+
+.product-item .prices .old-price {
+    margin: 0 6px 0 0;
+    color: var(--gil-color-muted);
+    text-decoration: line-through;
+}
+
+.product-item .buttons {
+    margin: 0;
+}
+
+.product-item .buttons .product-box-add-to-cart-button {
+    width: auto;
+    font-family: var(--gil-font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gil-color-cream);
+    background-color: var(--gil-color-sage);
+    border: none;
+    border-radius: 999px;
+    padding: 10px 20px;
+}
+
+.product-item .buttons .product-box-add-to-cart-button:hover,
+.product-item .buttons .product-box-add-to-cart-button:focus {
+    background-color: var(--gil-color-sage-light);
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   Product grid (existing Views/Catalog/_ProductsInGridOrLines.cshtml markup, and every other consumer
+   of the same .product-grid > .item-grid > .item-box structure — RelatedProducts, HomepageProducts,
+   HomepageBestSellers, ProductsAlsoPurchased, CrossSellProducts, the category page's own featured-
+   products grid, etc. List view, .product-list, is left on its existing layout, unchanged.)
+   --------------------------------------------------------------------------------------------------- */
+
+.product-grid .item-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+}
+
+.product-grid .item-grid .item-box {
+    float: none;
+    width: auto;
+    margin: 0;
+}
+
+@media (min-width: 768px) {
+    .product-grid .item-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 992px) {
+    .product-grid .item-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   Category pills (CategoryNavigation/Default.cshtml override — flattened list; shared by the sidebar
+   instance rendered from _ColumnsTwo.cshtml and the header-band instance added by this Task's
+   CategoryTemplate.ProductsInGridOrLines.cshtml override)
+   --------------------------------------------------------------------------------------------------- */
+
+.block-category-navigation .listbox .list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.block-category-navigation .listbox .list li {
+    margin: 0;
+    padding: 0;
+}
+
+.block-category-navigation .listbox .list li a {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--gil-font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gil-color-sage);
+    background-color: #fff;
+    border: 1px solid var(--gil-color-linen-dark);
+    border-radius: 999px;
+    padding: 8px 16px;
+    text-decoration: none;
+    transition: background-color .2s ease, color .2s ease, border-color .2s ease;
+}
+
+.block-category-navigation .listbox .list li a:hover,
+.block-category-navigation .listbox .list li a:focus {
+    background-color: var(--gil-color-sage-soft);
+}
+
+.block-category-navigation .listbox .list li.active a {
+    color: var(--gil-color-cream);
+    background-color: var(--gil-color-sage);
+    border-color: var(--gil-color-sage);
+}
+
+/* Header-band instance only (rendered inside .category-pills-row by
+   CategoryTemplate.ProductsInGridOrLines.cshtml). The sidebar instance keeps its existing block/listbox
+   look and its existing responsive collapse below 1001px (see Themes/DefaultClean/Content/css/
+   styles.css, unchanged) — that collapse is pre-existing sidebar behavior, out of this Task's scope.
+   The header-band instance is new markup this Task adds specifically so a pill row always renders
+   above the grid, so it must stay visible at every width; without the two overrides below it would
+   inherit that same collapse (".block-category-navigation { display: none }" below 1001px and
+   ".block .listbox { display: none }" unconditionally) and silently disappear on any narrower desktop
+   or tablet viewport. Both overrides add ancestor classes beyond the core rule they beat, so they win
+   the cascade at every width regardless of source order. */
+.category-pills-row .block-category-navigation {
+    display: block;
+    margin: 0 0 32px;
+}
+
+.category-pills-row .block-category-navigation .listbox {
+    display: block;
+}
+
+.category-pills-row .block-category-navigation .title {
+    display: none;
+}
