@@ -78,6 +78,29 @@ Fix, in order of preference:
    A relative value (e.g. `src\`) does not work — MSBuild evaluates it relative to the project file's own
    directory, not the shell's working directory, so it silently reproduces the same failure.
 
+## A different plugin's tests suddenly fail with "no such table: X", and nothing you touched looks related
+
+Symptom: tests for a plugin you did not modify start failing with e.g.
+`Microsoft.Data.Sqlite.SqliteException : SQLite Error 1: 'no such table: ProductionBatch'`, right after
+a change that only added a migration to a *different* plugin.
+
+Cause: `NopMigrationAttribute.Version` is `Ticks` of the literal `"yyyy-MM-dd HH:mm:ss"` string passed to
+it, with no per-plugin salt, and `MigrationVersionInfo` — the table FluentMigrator uses to track which
+versions have run — is one table shared across the entire solution with a unique index on `Version`. If
+your new migration's date/time string is byte-identical to some other plugin's existing migration, both
+compute the same `Version`. `BaseDataProvider.InitializeDatabase()`'s "mark update migrations as
+applied" fresh-install pass runs first and marks every `Update`-type migration it discovers as applied
+**without running its `Up()`** — so if your migration is the one that gets marked first, the other
+plugin's colliding migration is later found "already applied" and is silently skipped, whether it was
+`Update` or `Installation` type, whether or not it ever actually ran. No error, no log line — the only
+symptom is that plugin's table never getting created, discovered only when its own tests query it.
+
+Confirm the diagnosis cheaply: `grep -rn 'NopMigration("<the suspect date>' src` — if it matches more
+than one migration, that is the bug. Fix by changing one migration's seconds field to something unique
+(see `migration-standards-check` for the write-time check and existing precedent for disambiguating
+same-day migrations). Do not "fix" this by touching the failing plugin's own migration or test setup —
+it never ran because of an unrelated migration's collision, not because of anything wrong in it.
+
 ## Thousands of errors, all NU1301 / 401 against a feed that is not nuget.org
 
 ```

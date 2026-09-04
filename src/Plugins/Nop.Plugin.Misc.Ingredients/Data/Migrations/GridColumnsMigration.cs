@@ -5,7 +5,7 @@ using Nop.Web.Framework.Extensions;
 
 namespace Nop.Plugin.Misc.Ingredients.Data.Migrations;
 
-[NopMigration("2026-09-04 00:00:00", "Nop.Plugin.Misc.Ingredients grid columns", MigrationProcessType.Update)]
+[NopMigration("2026-09-04 00:00:01", "Nop.Plugin.Misc.Ingredients grid columns", MigrationProcessType.Update)]
 public class GridColumnsMigration : MigrationBase
 {
     #region Methods
