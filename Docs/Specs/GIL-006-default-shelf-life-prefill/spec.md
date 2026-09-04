@@ -519,3 +519,176 @@ prefill re-arms until the admin manually edits Best-before again for that produc
 **Date:** 2026-09-04
 **Revision notes:** none — approved as proposed, with one open UX question (reset-on-product-change)
 resolved inline during Gate 1 rather than sent back for a second `ddd-modeler` pass.
+
+## Implementation plan (implementation-planner)
+
+File-by-file plan, each file mirroring an existing analogous file in this repo. No further domain
+decisions — only how the approved design becomes concrete files.
+
+### Files
+
+- **`ProductionLabelsDefaults.cs`** — changed. New static property, alongside the existing two key-prefix
+  properties: `public static string DefaultShelfLifeDaysAttributeKey => "ProductionLabels.DefaultShelfLifeDays";`.
+- **`Admin/Models/ProductionLabelsProductModel.cs`** — changed. New flat property on
+  `ProductionLabelsProductModel` (not on `ProductionLabelsProductLocalizedModel` — not per-language):
+  `[NopResourceDisplayName("Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays")] public int? DefaultShelfLifeDays { get; set; }`.
+- **`Admin/Models/ProductionBatchModel.cs`** — changed. New property `public int? DefaultShelfLifeDays { get; set; }`
+  — not user-editable, hidden field only, feeds the popup's client-side script; not on the
+  `ProductionBatch` entity, no `MapperConfiguration.cs` change needed (mirrors `ProductName`/
+  `AvailableProducts`'s existing unmapped-source-member precedent).
+- **`Admin/Factories/ProductionLabelsAdminModelFactory.cs`** — changed. New method:
+  ```csharp
+  public virtual async Task<int?> GetDefaultShelfLifeDaysAsync(int productId)
+  {
+      return await _genericAttributeService.GetAttributeAsync<Product, int?>(productId,
+          ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey);
+  }
+  ```
+  `PrepareProductionLabelsProductModelAsync`: inside the existing `if (productId > 0)` block, add
+  `model.DefaultShelfLifeDays = await GetDefaultShelfLifeDaysAsync(productId);`.
+  `PrepareProductionBatchModelAsync`: change
+  `if (productId == 0) await PrepareAvailableProductsAsync(model.AvailableProducts);` to an `if/else`,
+  populating `model.DefaultShelfLifeDays` via the new method in the `else` branch. Add
+  `using Nop.Core.Domain.Catalog;` if not already present.
+- **`Admin/Validators/ProductionLabelsProductValidator.cs`** — new, mirrors `ProductionBatchValidator.cs`:
+  ```csharp
+  using FluentValidation;
+  using Nop.Plugin.Misc.ProductionLabels.Admin.Models;
+  using Nop.Services.Localization;
+  using Nop.Web.Framework.Validators;
+
+  namespace Nop.Plugin.Misc.ProductionLabels.Admin.Validators;
+
+  public class ProductionLabelsProductValidator : BaseNopValidator<ProductionLabelsProductModel>
+  {
+      public ProductionLabelsProductValidator(ILocalizationService localizationService)
+      {
+          RuleFor(model => model.DefaultShelfLifeDays)
+              .GreaterThan(0)
+              .When(model => model.DefaultShelfLifeDays.HasValue)
+              .WithMessageAwait(localizationService.GetResourceAsync("Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.GreaterThanZero"));
+      }
+  }
+  ```
+  No `SetDatabaseValidationRules<T>()` call (no backing entity for this model). No manual DI
+  registration (auto-registered, per design).
+- **`Admin/Controllers/ProductionLabelsAdminController.cs`** — changed.
+  `SaveProductInfo`: add a `ModelState.IsValid` check at the top (error-notify each `ModelState` error,
+  redirect to `Product/Edit` on failure — before the existing product lookup); after the existing
+  `Locales.Any()`/fallback branch, add the unconditional
+  `await _genericAttributeService.SaveAttributeAsync(product, ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey, model.DefaultShelfLifeDays);`
+  before the success notification. Add `using System.Linq;` if not already present (needed for
+  `SelectMany`).
+  New action, placed near `ProductionBatchCreatePopup`:
+  ```csharp
+  [CheckPermission(ProductionLabelsPermissionConfigManager.PRODUCTION_LABELS_CREATE,
+      CheckPermissionAttribute.CheckPermissionResultType.Json)]
+  public virtual async Task<IActionResult> GetDefaultShelfLifeDays(int productId)
+  {
+      var defaultShelfLifeDays = await _productionLabelsAdminModelFactory.GetDefaultShelfLifeDaysAsync(productId);
+
+      return Json(new { DefaultShelfLifeDays = defaultShelfLifeDays });
+  }
+  ```
+- **`Admin/Views/Components/ProductionLabels.cshtml`** — changed. One new `form-group row`
+  (`nop-label`/`nop-editor`/`asp-validation-for` for `DefaultShelfLifeDays`), inside the
+  `SaveProductInfo` form, placed **before** the `Html.LocalizedEditorAsync(...)` call (shelf-life
+  configuration reads naturally before the per-language descriptive fields).
+- **`Admin/Views/ProductionBatchCreatePopup.cshtml`** — changed. Hidden field
+  `<input asp-for="DefaultShelfLifeDays" type="hidden" />`, plus a `<script>` block: a
+  `bestBeforeManuallyEdited` flag set only by a genuine `change` on `#BestBeforeDateUtc`; a
+  `#ProductionDateUtc` `change` handler recomputing `#BestBeforeDateUtc` from
+  `parseInt($('#DefaultShelfLifeDays').val(), 10)` days when it parses and the flag is false; and, only
+  when `Model.AvailableProducts.Any()`, a `#ProductId` `change` handler doing a plain `$.ajax` `GET` to
+  `GetDefaultShelfLifeDays` (default `async: true`, no in-flight guard needed — a low-frequency,
+  admin-only dropdown interaction), writing the result into `#DefaultShelfLifeDays`, resetting
+  `bestBeforeManuallyEdited = false`, and re-running the prefill. No `error` callback — a failed/empty
+  response already parses to `NaN`, read as "no default."
+- **`Data/Migrations/DefaultShelfLifeDaysMigration.cs`** — new, mirrors
+  `Nop.Plugin.Misc.Ingredients/Data/Migrations/NutritionalValuesMigration.cs`:
+  ```csharp
+  [NopMigration("2026-09-04 12:00:00", "Misc.ProductionLabels default shelf-life days", MigrationProcessType.Update)]
+  public class DefaultShelfLifeDaysMigration : MigrationBase
+  {
+      public override void Up()
+      {
+          if (!DataSettingsManager.IsDatabaseInstalled())
+              return;
+
+          this.AddOrUpdateLocaleResource(new Dictionary<string, string>
+          {
+              ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays"] = "Default shelf-life (days)",
+              ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.Hint"] = "The number of days from production to best-before, used to prefill new batches; leave blank for no default.",
+              ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.GreaterThanZero"] = "Default shelf-life (days) must be greater than zero."
+          });
+      }
+
+      public override void Down()
+      {
+          //nothing - forward-only
+      }
+  }
+  ```
+  Timestamp confirmed unique against every `NopMigration` in the solution; sorts after
+  `SchemaMigration`'s `2026-09-04 00:00:00`.
+- **`ProductionLabelsPlugin.cs`** — changed. `InstallAsync()`: add the same three locale keys to the
+  existing `AddOrUpdateLocaleResourceAsync` dictionary (the async `ILocalizationService` call — distinct
+  from, and needed in addition to, the migration's synchronous `this.AddOrUpdateLocaleResource`).
+  `UninstallAsync()`: after the existing per-language purge loop (outside `foreach (var language in
+  languages)` — this key is not per-language), add
+  `await _genericAttributeService.DeleteAttributesAsync<Product>(ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey);`.
+- **`plugin.json`** — changed. `"Version": "5.00.1"` → `"Version": "5.00.2"`.
+- **`Docs/BusinessLogic/product-production-labels.md`** — changed. New section after "Storage
+  conditions and country of origin are per-product, per-language admin input": `DefaultShelfLifeDays` is
+  optional, per-product (not per-language), admin-only, drives only a client-side prefill of
+  `BestBeforeDateUtc`, never itself persisted onto a `ProductionBatch` row, purged on uninstall via one
+  bulk sweep (no per-language enumeration, unlike its two siblings).
+
+### Tests
+
+- **`ProductionLabelsAdminModelFactoryTests.cs`** — changed: `GetDefaultShelfLifeDaysAsync` set/unset;
+  `PrepareProductionLabelsProductModelAsync` populates the field from the `GenericAttribute`, both set
+  and null cases; `PrepareProductionBatchModelAsync` (productId > 0) populates the field from the
+  configured value.
+- **`ProductionLabelsAdminControllerTests.cs`** — changed: `SaveProductInfo` persists the field on both
+  the `Locales`-populated and flat-fallback branches (the regression case this plan exists to prevent);
+  a new `ModelState`-invalid case does not save and shows an error notification;
+  `GetDefaultShelfLifeDays` returns the configured value / `null` as JSON.
+- **`ProductionLabelsProductValidatorTests.cs`** — new, mirrors `ProductionBatchValidatorTests.cs`:
+  fails on `0`/negative, succeeds on `null`/positive.
+- **`ProductionLabelsPluginTests.cs`** — changed: extend the uninstall test to also seed
+  `DefaultShelfLifeDaysAttributeKey` on the test product and assert it's purged after `UninstallAsync()`.
+
+Client-side prefill date arithmetic and the "don't clobber a manual edit" behavior have no C#-level
+test (per spec §11 — no JS test runner in this repo); verified manually per spec instead.
+
+### Order of work
+
+1. `ProductionLabelsDefaults.cs` (new key constant).
+2. `ProductionLabelsProductModel.cs` / `ProductionBatchModel.cs` (new properties).
+3. `ProductionLabelsAdminModelFactory.cs` (new method + wiring into both `Prepare*` methods).
+4. `ProductionLabelsProductValidator.cs` (new validator).
+5. `ProductionLabelsAdminController.cs` (`SaveProductInfo` fix + new action).
+6. Views (`ProductionLabels.cshtml`, `ProductionBatchCreatePopup.cshtml`).
+7. `DefaultShelfLifeDaysMigration.cs` + `ProductionLabelsPlugin.cs` (`InstallAsync`/`UninstallAsync`) —
+   independent of steps 2–6, can run in parallel.
+8. `plugin.json` version bump — last.
+9. Tests, written alongside each layer above.
+10. `Docs/BusinessLogic/product-production-labels.md` — same PR, written last once behavior is final.
+
+### Standards skills to load
+
+`entity-extension-check`, `admin-ui-standards-check`, `localization-standards-check`,
+`migration-standards-check`, `security-permissions-check`, `testing-standards-check`.
+
+### Resolved at Gate 2 (non-substantive, implementer's call already delegated by the design)
+
+- `GetDefaultShelfLifeDays` action placement in the controller file: next to `ProductionBatchCreatePopup`.
+- No in-flight AJAX guard on the standalone popup's product-change handler — low-frequency, admin-only
+  interaction (spec §8), a stray extra request on rapid re-selection is immaterial.
+- New field's position in `ProductionLabels.cshtml`: before the localized Storage conditions/Country of
+  origin editor.
+
+**Approved by:** Mateusz Nycz (developer)
+**Date:** 2026-09-04
+**Revision notes:** none — approved as proposed.
