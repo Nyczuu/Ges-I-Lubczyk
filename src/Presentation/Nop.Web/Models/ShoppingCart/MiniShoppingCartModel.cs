@@ -19,6 +19,10 @@ public partial record MiniShoppingCartModel : BaseNopModel
     public bool CurrentCustomerIsGuest { get; set; }
     public bool AnonymousCheckoutAllowed { get; set; }
     public bool ShowProductImages { get; set; }
+    public bool DisplayFreeShippingBar { get; set; }
+    public bool FreeShippingReached { get; set; }
+    public string AmountToFreeShipping { get; set; }
+    public int FreeShippingProgressPercentage { get; set; }
 
     #region Nested Classes
 

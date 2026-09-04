@@ -1,6 +1,9 @@
-﻿using AwesomeAssertions;
+﻿using System.Reflection;
+using AwesomeAssertions;
 using Nop.Core;
+using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Orders;
+using Nop.Core.Domain.Shipping;
 using Nop.Data;
 using Nop.Services.Catalog;
 using Nop.Services.Customers;
@@ -23,6 +26,9 @@ public class ShoppingCartModelFactoryTests : WebTest
     private ShoppingCartItem _shoppingCartItem;
     private ShoppingCartItem _wishlistItem;
     private ICustomerService _customerService;
+    private ShippingSettings _shippingSettings;
+    private ShippingSettings _orderTotalCalculationShippingSettings;
+    private Product _product;
 
     [OneTimeSetUp]
     public async Task SetUp()
@@ -33,6 +39,29 @@ public class ShoppingCartModelFactoryTests : WebTest
         _producService = GetService<IProductService>();
         _localizationService = GetService<ILocalizationService>();
         _customerService = GetService<ICustomerService>();
+
+        //ShippingSettings is registered Transient in this test harness - every GetService<ShippingSettings>()
+        //call loads a disconnected new instance, so mutating one has no effect on the already-constructed
+        //_shoppingCartModelFactory above, which captured its own instance once at construction. Re-resolving
+        //IShoppingCartModelFactory itself per test (instead of reusing the shared field) was tried and made
+        //the whole fixture crash the test host with a stack overflow deep in the DI container's IL-emitted
+        //resolver - repeated whole-graph Transient resolution of this factory is not safe in this harness.
+        //Reflecting into the shared factory's own field mutates the exact object it already reads, with no
+        //re-resolution and no database write.
+        _shippingSettings = (ShippingSettings)typeof(ShoppingCartModelFactory)
+            .GetField("_shippingSettings", BindingFlags.NonPublic | BindingFlags.Instance)
+            .GetValue(_shoppingCartModelFactory);
+
+        //the free-shipping-reached branch is decided by IOrderTotalCalculationService.IsFreeShippingAsync,
+        //not by the factory's own copy above - ShippingSettings being Transient means the
+        //IOrderTotalCalculationService instance the factory holds captured a THIRD, separate
+        //ShippingSettings instance at its own construction, so it needs its own reflection target too
+        var orderTotalCalculationService = typeof(ShoppingCartModelFactory)
+            .GetField("_orderTotalCalculationService", BindingFlags.NonPublic | BindingFlags.Instance)
+            .GetValue(_shoppingCartModelFactory);
+        _orderTotalCalculationShippingSettings = (ShippingSettings)orderTotalCalculationService.GetType()
+            .GetField("_shippingSettings", BindingFlags.NonPublic | BindingFlags.Instance)
+            .GetValue(orderTotalCalculationService);
 
         var store = await GetService<IStoreContext>().GetCurrentStoreAsync();
 
@@ -61,6 +90,12 @@ public class ShoppingCartModelFactoryTests : WebTest
 
         customer.HasShoppingCartItems = true;
         await _customerService.UpdateCustomerAsync(customer);
+
+        //the fixture's cart product ("Build your own computer") ships with IsFreeShipping = true in the
+        //seed data - IsFreeShippingAsync's product-level check short-circuits to true before the X-value
+        //threshold is ever evaluated, so the free-shipping-bar tests below must temporarily flip it off to
+        //actually exercise FreeShippingOverXValue rather than this unrelated per-product flag
+        _product = await _producService.GetProductByIdAsync(_shoppingCartItem.ProductId);
     }
 
     [OneTimeTearDown]
@@ -133,6 +168,82 @@ public class ShoppingCartModelFactoryTests : WebTest
         model.Items.Count.Should().Be(1);
         model.TotalProducts.Should().Be(1);
         model.SubTotal.Should().Be("$1,200.00");
+    }
+
+    //keeps the factory's own ShippingSettings copy and the one its IOrderTotalCalculationService dependency
+    //captured separately (see [OneTimeSetUp]) in sync - both are read by PrepareMiniShoppingCartModelAsync's
+    //free-shipping-bar block, and being two distinct Transient-resolved objects, only setting one would
+    //leave the other on its stale default (FreeShippingOverXEnabled = false)
+    private void SetFreeShippingOverX(bool enabled, decimal value)
+    {
+        _shippingSettings.FreeShippingOverXEnabled = enabled;
+        _shippingSettings.FreeShippingOverXValue = value;
+        _orderTotalCalculationShippingSettings.FreeShippingOverXEnabled = enabled;
+        _orderTotalCalculationShippingSettings.FreeShippingOverXValue = value;
+    }
+
+    [Test]
+    public async Task CanPrepareMiniShoppingCartModelWithFreeShippingDisabled()
+    {
+        SetFreeShippingOverX(enabled: false, value: 0M);
+
+        try
+        {
+            var model = await _shoppingCartModelFactory.PrepareMiniShoppingCartModelAsync();
+
+            model.DisplayFreeShippingBar.Should().BeFalse();
+        }
+        finally
+        {
+            SetFreeShippingOverX(enabled: false, value: 0M);
+        }
+    }
+
+    [Test]
+    public async Task CanPrepareMiniShoppingCartModelWhenBelowFreeShippingThreshold()
+    {
+        SetFreeShippingOverX(enabled: true, value: 2000M);
+        _product.IsFreeShipping = false;
+        await _producService.UpdateProductAsync(_product);
+
+        try
+        {
+            var model = await _shoppingCartModelFactory.PrepareMiniShoppingCartModelAsync();
+
+            model.DisplayFreeShippingBar.Should().BeTrue();
+            model.FreeShippingReached.Should().BeFalse();
+            model.AmountToFreeShipping.Should().NotBeNullOrEmpty();
+            model.FreeShippingProgressPercentage.Should().BeInRange(1, 99);
+        }
+        finally
+        {
+            SetFreeShippingOverX(enabled: false, value: 0M);
+            _product.IsFreeShipping = true;
+            await _producService.UpdateProductAsync(_product);
+        }
+    }
+
+    [Test]
+    public async Task CanPrepareMiniShoppingCartModelWhenFreeShippingReached()
+    {
+        SetFreeShippingOverX(enabled: true, value: 500M);
+        _product.IsFreeShipping = false;
+        await _producService.UpdateProductAsync(_product);
+
+        try
+        {
+            var model = await _shoppingCartModelFactory.PrepareMiniShoppingCartModelAsync();
+
+            model.FreeShippingReached.Should().BeTrue();
+            model.AmountToFreeShipping.Should().BeNull();
+            model.FreeShippingProgressPercentage.Should().Be(0);
+        }
+        finally
+        {
+            SetFreeShippingOverX(enabled: false, value: 0M);
+            _product.IsFreeShipping = true;
+            await _producService.UpdateProductAsync(_product);
+        }
     }
 
     [Test]
