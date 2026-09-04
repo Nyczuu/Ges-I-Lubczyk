@@ -121,5 +121,11 @@
                 flyoutCart.classList.remove('active');
             });
         }
+        var backdrop = flyoutCart.querySelector('.gil-cart-backdrop');
+        if (backdrop) {
+            backdrop.addEventListener('click', function () {
+                flyoutCart.classList.remove('active');
+            });
+        }
     })();
 </script>
