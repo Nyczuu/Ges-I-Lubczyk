@@ -1,17 +1,15 @@
 namespace Nop.Plugin.Misc.ProductionLabels.Services.Pdf;
 
 /// <summary>
-/// Isolates the still-open HTML-to-PDF rendering library choice (spec §13 - deliberately left open pending
-/// a real build-and-render smoke test against the Alpine-based runtime image) behind one seam. Page-size
-/// geometry is CSS driven by <see cref="Domain.ProductionLabelSizeVariant"/> on the label view model, not a
-/// converter-API parameter, so swapping the eventual library touches nothing else.
+/// Isolates the HTML-to-PDF rendering library choice (spec §13 - resolved by a real build-and-render
+/// smoke test against the Alpine-based runtime image; see <see cref="PuppeteerSharpHtmlToPdfConverter"/>)
+/// behind one seam. Page-size geometry is CSS driven by <see cref="Domain.ProductionLabelSizeVariant"/> on
+/// the label view model, not a converter-API parameter, so swapping the library touches nothing else.
 /// </summary>
 /// <remarks>
-/// No real rendering implementation exists yet - <c>Infrastructure/PluginServiceRegistrar.cs</c> registers
-/// <see cref="NotYetAvailableHtmlToPdfConverter"/> in the meantime, purely so the admin controller that
-/// depends on this interface can still be constructed by DI; a test that needs an instance of this
-/// interface for anything beyond that placeholder's own behaviour should use a hand-written fake/mock
-/// local to the test project, never a real converter.
+/// A test that needs an instance of this interface should use a hand-written fake/mock local to the test
+/// project, never <see cref="PuppeteerSharpHtmlToPdfConverter"/> itself - it launches a real Chromium
+/// process.
 /// </remarks>
 public interface IHtmlToPdfConverter
 {

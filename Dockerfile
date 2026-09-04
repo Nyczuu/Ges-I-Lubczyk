@@ -44,6 +44,13 @@ RUN apk add tiff --no-cache --repository https://dl-cdn.alpinelinux.org/alpine/e
 RUN apk add libgdiplus --no-cache --repository https://dl-cdn.alpinelinux.org/alpine/edge/community/ --allow-untrusted
 RUN apk add libc-dev tzdata gcompat --no-cache
 
+# headless Chromium for Nop.Plugin.Misc.ProductionLabels' PuppeteerSharpHtmlToPdfConverter (spec Section
+# 13) - PuppeteerSharp's own downloader fetches a glibc build that does not run on musl/Alpine, so the
+# apk package is used instead; ttf-freefont supplies a sans-serif font family for the label template's
+# "Arial, Helvetica, sans-serif" stack, which the base image otherwise has no glyphs for
+RUN apk add --no-cache chromium ttf-freefont
+ENV PRODUCTIONLABELS_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 WORKDIR /app
 
 COPY --from=build /app/published .

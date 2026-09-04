@@ -20,6 +20,10 @@
 
         return $"{display} ({string.Join(", ", node.Children.Select(RenderIngredientNode))})";
     }
+
+    //@page cannot be scoped by a class selector - a rendered document is always exactly one size
+    //variant, so the page size is picked here rather than expressed as CSS per class like .label below
+    var pageSize = Model.SizeVariant == ProductionLabelSizeVariant.SmallJar ? "70mm 70mm" : "100mm 100mm";
 }
 <!DOCTYPE html>
 <html>
@@ -38,7 +42,15 @@
             padding: 6mm;
         }
 
-        /* geometry only differs between the two preset variants - content and layout are identical */
+        /* sets the actual PDF page size to match the chosen variant (PuppeteerSharpHtmlToPdfConverter
+           renders with PreferCSSPageSize, so this - not the converter - drives the printed page
+           dimensions); the .label rules below size the visible box to fill that same page. Geometry only
+           differs between the two preset variants - content and layout are identical. */
+        @@page {
+            size: @pageSize;
+            margin: 0;
+        }
+
         .label.size-smalljar {
             width: 70mm;
             height: 70mm;

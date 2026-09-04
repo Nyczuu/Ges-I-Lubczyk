@@ -27,6 +27,16 @@ public class ProductionLabelsDefaults
     /// </summary>
     public static string CountryOfOriginAttributeKeyPrefix => "ProductionLabels.CountryOfOrigin.";
 
+    /// <summary>
+    /// Gets the name of the environment variable that, when set, points
+    /// <see cref="Services.Pdf.PuppeteerSharpHtmlToPdfConverter"/> at a system-installed Chromium
+    /// executable instead of letting PuppeteerSharp download its own build. Always set in the runtime
+    /// Docker image (Alpine's own <c>chromium</c> apk package, at <c>/usr/bin/chromium-browser</c>) -
+    /// PuppeteerSharp's bundled downloader fetches a glibc build that does not run on musl/Alpine.
+    /// Left unset on a developer machine so PuppeteerSharp can download a compatible build itself.
+    /// </summary>
+    public static string ChromiumExecutablePathEnvironmentVariable => "PRODUCTIONLABELS_CHROMIUM_EXECUTABLE_PATH";
+
     public static class Routes
     {
         private const string ROUTE_PREFIX = "Plugin.Misc.ProductionLabels.Route.";

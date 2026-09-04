@@ -19,15 +19,11 @@ internal static class PluginServiceRegistrar
         services.AddScoped<IProductionBatchService, ProductionBatchService>();
         services.AddScoped<IProductionLabelModelFactory, ProductionLabelModelFactory>();
 
-        //the concrete HTML-to-PDF library choice is still open (spec Section 13), pending a real
-        //build-and-render smoke test against the Alpine-based runtime image - but IHtmlToPdfConverter
-        //still needs a registration now: ProductionLabelsAdminController takes it as a constructor
-        //dependency, and with nothing registered here the DI container cannot construct that controller
-        //for ANY action (List, ProductionBatchCreatePopup, ProductionBatchDelete, GenerateLabelPopup,
-        //SaveProductInfo included), not just GenerateLabel. This placeholder unblocks every other action;
-        //only an actual "Generate label" invocation reaches ConvertAsync, where it throws clearly. Replace
-        //with the real converter once the library choice is made.
-        services.AddScoped<IHtmlToPdfConverter, NotYetAvailableHtmlToPdfConverter>();
+        //the concrete HTML-to-PDF library choice (spec Section 13) is PuppeteerSharp, confirmed by a real
+        //build-and-render smoke test against the Alpine-based runtime image - see
+        //PuppeteerSharpHtmlToPdfConverter's own remarks for why it caches the launched browser in a
+        //static field rather than tying it to this scoped registration
+        services.AddScoped<IHtmlToPdfConverter, PuppeteerSharpHtmlToPdfConverter>();
 
         services.AddScoped<ProductionLabelsAdminModelFactory>();
     }
