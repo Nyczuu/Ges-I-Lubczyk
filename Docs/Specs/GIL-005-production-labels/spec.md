@@ -606,3 +606,206 @@ code change, but it gates correctness of the label content itself.
 installed) requested against a risk the base design itself surfaced. `DependsOnSystemNames` in
 `plugin.json` was considered as a further belt-and-suspenders measure and explicitly declined — the
 catch alone is the accepted mitigation.
+
+## Implementation plan (implementation-planner)
+
+File-by-file plan for the standalone Task, each file mirroring an existing analogous file in
+`Nop.Plugin.Misc.Ingredients` and/or `Nop.Plugin.Misc.ServingSuggestions` unless noted as having no
+mirror. No further domain decisions made here — only how the approved design becomes concrete files.
+
+### New plugin skeleton
+
+- **`Nop.Plugin.Misc.ProductionLabels.csproj`** — mirrors `Nop.Plugin.Misc.Ingredients.csproj`, plus a
+  **second** `ProjectReference` (to `Nop.Plugin.Misc.Ingredients.csproj` — the design's flagged first
+  plugin-to-plugin reference). No `Public\Views\*` content entries at all (no storefront surface).
+- **`plugin.json`** — `SystemName: "Misc.ProductionLabels"`, `Group: "Misc"`, `SupportedVersions: ["5.00"]`.
+- **`logo.png`** — placeholder, `Content`/`PreserveNewest`.
+- **`ProductionLabelsDefaults.cs`** — `SystemName`, `ProductionLabelsMenuSystemName`, route-name
+  constants, and the two `GenericAttribute` key **prefixes** (`ProductionLabels.StorageConditions.`,
+  `ProductionLabels.CountryOfOrigin.`, language id appended at call sites).
+
+### Domain / data
+
+- **`Domain/ProductionBatch.cs`** — the entity exactly as given in the approved design above.
+- **`Domain/ProductionLabelSizeVariant.cs`** — `enum { SmallJar, LargeJar }`, never persisted (a
+  per-request rendering choice, unlike `AllergenType`).
+- **`Data/Mapping/Builders/ProductionBatchBuilder.cs`** — maps only `ProductId`
+  (`.AsInt32().ForeignKey<Product>()`) and `BatchCode` (`.AsString(50).NotNullable()`); every other
+  column auto-maps from its CLR type.
+- **`Data/Migrations/SchemaMigration.cs`** — `[NopMigration("2026-09-04 00:00:00", "Misc.ProductionLabels schema", MigrationProcessType.Installation)]`,
+  `Up()` → `CreateTableIfNotExists<ProductionBatch>()`, `Down()` → `DeleteTableIfExists<ProductionBatch>()`.
+  Mirrors `ServingSuggestions/Data/Migrations/SchemaMigration.cs` exactly — note
+  `.claude/skills/migration-standards-check/SKILL.md`'s own top example is stale (shows
+  `[NopSchemaMigration]`/`ForwardOnlyMigration`); follow the real sibling shape, not that example.
+
+### Services
+
+- **`IProductionBatchService`/`ProductionBatchService`** — `GetAllProductionBatchesAsync(int? productId, pageIndex, pageSize)`
+  (newest-first, uncached plain repository query — not the `GetByIdAsync(id, cache => ...)` shortcut),
+  `GetProductionBatchByIdAsync`, `InsertProductionBatchAsync` (validates, generates `BatchCode` as
+  `{ProductionDateUtc:yyyyMMdd}-{counter:D3}` where counter is `1 + MAX` of the existing numeric suffix
+  for `(ProductId, ProductionDateUtc.Date)` — deliberately not `COUNT`, which would collide after a
+  mid-day batch delete), `DeleteProductionBatchAsync` (throws `NopException` if `LabelGeneratedOnUtc.HasValue`),
+  `MarkLabelGeneratedAsync`.
+- **`Services/ProductionLabelModel.cs`** — `ProductionLabelModel` (ProductName, Ingredients tree,
+  NetQuantity **with its measure-unit string, resolved via `IMeasureService` against the store's base
+  weight measure — round 10 resolution, not a bare decimal**, BatchCode, BestBeforeDateUtc, Company
+  fields, StorageConditions/CountryOfOrigin, SizeVariant) + `ProductionLabelIngredientModel`
+  (Name, AllergenType, nested Children).
+- **`IProductionLabelModelFactory`/`ProductionLabelModelFactory`** — `PrepareProductionLabelModelAsync(ProductionBatch, languageId, sizeVariant)`.
+  Walks the ingredient graph via the same three public calls the storefront already chains
+  (`GetDirectIngredientsByProductIdAsync` → `GetCompositionsReachableFromAsync` → `GetIngredientsByIdsAsync`)
+  through a **new** recursive builder (not `IngredientsViewComponent.BuildNodeAsync`, which is `protected`
+  and carries no `AllergenType`), bounded by `IngredientsDefaults.MaxCompositionDepth`, throwing
+  `NopException` only on real truncation (a depth-boundary node with further recorded children).
+  `Product.Name` **and** ingredient names/descriptions both read via `GetLocalizedAsync(..., languageId, ...)`
+  with the label's explicit language passed end to end — never the ambient working language (round 10
+  closes a gap the plan itself flagged: the design was explicit for ingredients but silent on
+  `Product.Name`; same rule applies to both).
+  **Graceful-degrade addition**: the three-call ingredient chain is extracted into its own method,
+  wrapped in `catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UndefinedTable)`
+  returning an empty ingredient list plus one `_logger.WarningAsync(...)` line — with a
+  `protected virtual bool IsIngredientsSchemaMissing(Exception ex)` extraction point if
+  `Npgsql.PostgresException` proves awkward to construct directly in a unit test (confirm at first build).
+- **`Services/Pdf/IHtmlToPdfConverter.cs`** — `Task<byte[]> ConvertAsync(string html)`. **No concrete
+  implementation planned here** — blocked on the still-open PDF-library choice (§13); the interface alone
+  is enough for every other file to compile against.
+- **`Services/ProductionLabelsPermissionConfigManager.cs`** — three `PermissionConfig`s (`View`,
+  `Create`, `Delete`), `StandardPermission.Catalog`, `AdministratorsRoleName` default.
+- **`Services/Events/ProductionLabelsMenuEventConsumer.cs`** — `BaseAdminMenuCreatedEventConsumer`,
+  gated on `PRODUCTION_LABELS_VIEW`, `InsertType.After`, **`AfterMenuSystemName = "Filter level values"`**
+  (not Ingredients' own menu item — a missing anchor silently drops the item, and anchoring off
+  Ingredients would hide "Production" from an admin without `Ingredients.View`, or after an Ingredients
+  uninstall).
+
+### Infrastructure
+
+- **`Infrastructure/NopStartup.cs`** — registers `IProductionBatchService`, `IProductionLabelModelFactory`,
+  `ProductionLabelsAdminModelFactory`. The `IHtmlToPdfConverter` registration line is commented/deferred
+  pending the library choice.
+- **`Infrastructure/RouteProvider.cs`** — `Admin/ProductionLabels/List` → `ProductionLabelsAdminController.List`.
+- **`Infrastructure/MapperConfiguration.cs`** — `ProductionBatch` ↔ `ProductionBatchModel` (ignoring
+  `ProductName`, populated by the factory, not AutoMapper).
+- **`ProductionLabelsPlugin.cs`** — `BasePlugin, IMiscPlugin, IWidgetPlugin`; `GetWidgetZonesAsync()`
+  returns **only** `AdminWidgetZones.ProductDetailsBlock` (no `PublicWidgetZones` entry); single-branch
+  `GetWidgetViewComponent` (no zone switch needed, unlike both mirrors, since there's only one zone).
+  `UninstallAsync`: removes all three permission records, `DeleteLocaleResourcesAsync`, and — **the one
+  step with no direct mirror** — enumerates every configured language and calls
+  `IGenericAttributeService.DeleteAttributesAsync<Product>(...)` for both key prefixes per language
+  (round 7's requirement; neither sibling has per-language `GenericAttribute` keys to enumerate). No
+  `IRepository<LocalizedProperty>` cleanup needed (not `ILocalizedEntity`); table drops automatically via
+  `base.UninstallAsync()`.
+
+### Admin surface
+
+- **`Admin/Components/ProductionLabelsAdminViewComponent.cs`** — renders the product-edit tab, gated on
+  `PRODUCTION_LABELS_VIEW`.
+- **`Admin/Models/`** — `ProductionBatchModel` (plain `BaseNopEntityModel`; `BatchCode` shown, never
+  editable — system-generated), `ProductionBatchListModel`, `ProductionBatchSearchModel`
+  (`SearchProductId`, `0` = all products for the standalone section, mirrors the real core precedent
+  `ProductReviewSearchModel.SearchProductId` — the same "one service, two admin surfaces" shape),
+  `ProductionLabelsProductModel` (`ILocalizedModel<ProductionLabelsProductLocalizedModel>` carrying
+  `StorageConditions`/`CountryOfOrigin` per language — reuses `Html.LocalizedEditorAsync`, populated via
+  `ILocalizedModelFactory.PrepareLocalizedModelsAsync` across **all system-configured languages**, a
+  deliberately different scope from the label-generation-time picker which is scoped to the *store's*
+  configured languages), `GenerateProductionLabelModel` (batch id, size variant, optional language —
+  `null` defaults to the store's default language, or the **first language by `DisplayOrder`** among
+  active languages if the store's `DefaultLanguageId` is `0` — round 10 resolution for a case the design
+  named the data source for but not the zero-case algorithm).
+- **`Admin/Validators/ProductionBatchValidator.cs`** — `BestBeforeDateUtc` greater than
+  `ProductionDateUtc`, `Quantity` greater than `0` — mirrored by the identical service-layer
+  `NopException` checks (validator for UX, service for every caller, this repo's established
+  double-enforcement pattern).
+- **`Admin/Factories/ProductionLabelsAdminModelFactory.cs`** — search/list/model preparation for both
+  admin surfaces, sharing one factory.
+- **`Admin/Controllers/ProductionLabelsAdminController.cs`** — `List` (GET page + POST JSON grid, shared
+  by both surfaces), `ProductionBatchCreatePopup` (GET/POST), `ProductionBatchDelete` (catches
+  `NopException` → `ErrorNotification`, mirrors `IngredientsAdminController`'s composition-delete
+  pattern), `GenerateLabelPopup` (GET, options) + `GenerateLabel` (POST: prepare model → render partial
+  to HTML string via `RenderPartialViewToStringAsync` → `IHtmlToPdfConverter.ConvertAsync` → **only on
+  success** `MarkLabelGeneratedAsync` → `File(bytes, MimeTypes.ApplicationPdf, fileName)`, mirroring
+  `OrderController.PdfInvoice`'s file-return shape), `SaveProductInfo` (POST, per-locale `GenericAttribute`
+  writes for storage/origin). Every `View(...)` call uses the explicit
+  `~/Plugins/Misc.ProductionLabels/Admin/Views/...` path.
+- **Views** — `_ViewImports.cshtml`, `_ViewStart.cshtml`, `List.cshtml` (DataTables grid + row actions),
+  `ProductionBatchCreatePopup.cshtml`, `GenerateLabelPopup.cshtml` (size + language picker, submits to a
+  file download — the standard nopCommerce popup-window pattern, same shape as
+  `ServingSuggestionStepCreatePopup.cshtml`), `Components/ProductionLabels.cshtml` (product-tab grid +
+  the two localized text inputs, with the `Model.ProductId > 0` / "save the product first" guard
+  `admin-ui-standards-check` requires), `ProductionLabelTemplate.cshtml` (**no existing mirror** — the
+  actual label markup: standalone HTML document, CSS keyed off `SizeVariant`, storage/origin rendered
+  with plain `@`-encoding, never `Html.Raw`).
+
+### Solution file
+
+`src/NopCommerce.sln` — new project entry, build-configuration block, and nested-project entry, mirroring
+`Nop.Plugin.Misc.ServingSuggestions`'s three blocks with a new GUID, nested under the same flat "Plugins"
+solution folder every existing plugin uses.
+
+### Order of work
+
+1. `.sln` + `.csproj` (incl. the Ingredients `ProjectReference`) + `plugin.json` + `logo.png`.
+2. Domain → builder → migration.
+3. `ProductionLabelsDefaults.cs`.
+4. Permission manager.
+5. `IProductionBatchService`/`ProductionBatchService`.
+6. `IHtmlToPdfConverter` interface only (unblocks downstream signatures).
+7. Label model → `IProductionLabelModelFactory`/`ProductionLabelModelFactory` (needs the Ingredients
+   reference live).
+8. `RouteProvider`, `NopStartup`.
+9. Admin models → validators → mapper config → admin factory.
+10. Admin controller.
+11. Admin view component.
+12. `ProductionLabelsPlugin.cs`.
+13. Menu event consumer.
+14. Views + `.csproj` content entries.
+15. Tests, written alongside each layer above.
+16. **Blocked, does not block anything else compiling**: concrete `IHtmlToPdfConverter` implementation,
+    its package reference, any Dockerfile change.
+17. **Non-code prerequisite, blocks correctness not compilation**: the `DisplayOrder` data-quality pass
+    on every existing product (spec's own pre-ship blocking item).
+
+### Tests
+
+`ProductionBatchServiceTests` (insert/`BatchCode` format, delete-unlabeled succeeds, delete-labeled
+throws, validation throws, newest-first ordering), `ProductionBatchValidatorTests`,
+`ProductionLabelModelFactoryTests` (NUnit + Moq, not a `ServiceTest`/SQLite fixture — deliberately, since
+the graceful-degrade scenario needs to simulate a `PostgresException` a real SQLite fixture can't
+produce; covers every §11 scenario: normal, zero-ingredients, composite expansion, within-composite vs.
+root ordering as distinct assertions, per-node allergen correctness, blank storage/origin, HTML-injection
+literal-text rendering, legitimate depth-3 renders fully, only real truncation throws, explicit
+non-default language for both ingredients and `Product.Name`, per-language storage/origin, graceful
+degrade returns empty + logs), `ProductionLabelsAdminControllerTests` (delete-throws-notification path;
+stamp-only-after-success ordering, injecting a fake `IHtmlToPdfConverter` — doesn't need the real PDF
+gap resolved first), `ProductionLabelsPluginTests` (uninstall purges all three permissions and every
+language's variant of both `GenericAttribute` keys), `ProductionLabelsMenuEventConsumerTests` (no sibling
+precedent for this test — required unconditionally by `testing-standards-check`'s new-`IConsumer<T>`
+gate). Deliberately no cache-consumer test (none exists) and no `EntityDeletedEvent<Product>`-consumer
+test (none exists, by design).
+
+### Gaps closed at Gate 2
+
+- **Net quantity display format** — resolved: `Product.Weight` combined with the store's base weight
+  measure unit via `IMeasureService` (e.g. "250 g"), not a bare decimal — a number with no unit on a real
+  EU-1169-scoped label is a compliance gap, not a cosmetic detail.
+- **`Product.Name` language** — resolved: same explicit end-to-end `languageId` treatment already
+  decided for ingredient names: `GetLocalizedAsync(product, x => x.Name, languageId, ...)`, never the
+  ambient working language. The approved design was explicit for ingredients but silent on `Product.Name`
+  itself; same principle, no new decision.
+- **Store's default language when `Store.DefaultLanguageId == 0`** — resolved: first language by
+  `DisplayOrder` among active languages. An implementation-level algorithm choice, not a product
+  decision.
+- **Product-picker UI (standalone section's create-batch flow) and the "size+language→download" flow** —
+  resolved: both reuse nopCommerce's own standard admin popup-window pattern (the same shape already
+  used for e.g. cross-sell/related-product association, and for `ServingSuggestionStepCreatePopup.cshtml`)
+  — not a new UI mechanism.
+
+### Still open, not resolved here
+
+- **Concrete `IHtmlToPdfConverter` implementation** — per spec §13, pending a real build-and-render
+  smoke test against the Alpine runtime image. Nothing in this plan depends on it to compile.
+
+**Approved by:** Mateusz Nycz (developer)
+**Date:** 2026-09-04
+**Revision notes:** none — approved as proposed, with the four gaps above resolved inline rather than
+sent back for a second implementation-planner pass.
