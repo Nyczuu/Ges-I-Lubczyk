@@ -83,11 +83,52 @@ modeled as a 2-level composite (soy sauce → soybean extract, wheat) rather tha
 on one row. This is the same composition mechanism used for any other nested ingredient — there is no
 second, allergen-specific relation.
 
-Allergen severity, cross-contamination warnings ("may contain traces of"), quantities/percentages,
-descending-by-weight ordering, full EU-labelling compliance, ingredient import/export, and storefront
-filtering by ingredient or allergen are explicitly **out of scope for v1** — anticipated future work the
-data model does not block, not a rejected feature. A future allergen/diet filter reads the same always-
-current `AllergenId` column and closure directly; it does not require a data model rework.
+Allergen severity, cross-contamination warnings ("may contain traces of"), quantities/percentages, full
+EU-labelling compliance, ingredient import/export, and storefront filtering by ingredient or allergen are
+explicitly **out of scope for v1** — anticipated future work the data model does not block, not a
+rejected feature. A future allergen/diet filter reads the same always-current `AllergenId` column and
+closure directly; it does not require a data model rework.
+
+**Descending-by-weight ordering is no longer out of scope** as of
+[GIL-005](../Specs/GIL-005-production-labels/spec.md): the existing per-product `ProductIngredientMapping.DisplayOrder`
+and per-composite `IngredientComposition.DisplayOrder` fields were repurposed to carry a second,
+legally-relevant meaning — descending order by weight, for GIL-005's printed product label — on top of
+their original storefront-display purpose. Nothing enforced that second meaning before GIL-005; a
+pre-ship data-quality pass confirming every existing product's and composite ingredient's `DisplayOrder`
+is actually in descending-weight order is that ticket's own responsibility, not this one's, but any
+future change to either field's semantics must account for both purposes now, not just storefront
+display.
+
+## Nutritional values
+
+Shipped by [GIL-004](../Specs/GIL-004-ingredient-nutritional-values/spec.md). Every ingredient carries
+four numeric facts, each expressed **per 100g** — the standard basis on Polish food labels — as real,
+non-nullable schema columns (`Ingredient.CaloriesPer100g`, `.ProteinPer100g`, `.FatPer100g`,
+`.CarbohydratePer100g`), not `GenericAttribute` or free text: these are structured facts a future
+recipe-level calorie/nutrition table is meant to sum, not a descriptive note.
+
+All four are **required**, not optional. An admin cannot save an ingredient (create or edit) without
+providing every one — an ingredient genuinely at zero (water, salt) is entered as `0`, not left blank.
+`0` had to remain a legal, meaningful value here rather than double as an "unknown" sentinel, since a
+future recipe-aggregation feature summing these values across a composition cannot tell a real zero from
+a missing one if both look the same on the row. Negative values are rejected by admin-form validation;
+"required" itself is enforced structurally (a non-nullable `decimal` model property fails ASP.NET Core
+model binding on a blank submission before any validator rule runs), not by a `NotEmpty`/`NotNull`
+validation rule, which would have wrongly rejected a genuine `0`.
+
+Ingredient rows that existed before GIL-004 shipped have no real value for these four columns. The
+migration that adds them backfills every existing row to `0` as part of the same `ALTER TABLE ... NOT
+NULL DEFAULT 0` statement, so the constraint is satisfiable immediately with no separate backfill pass and
+no window where it is unsatisfied. That `0` is a one-time technical default, not a claim that those
+ingredients are actually zero-calorie — an admin corrects them to real values afterward like any other
+backfilled field.
+
+Admin-only in this task: the Ingredient Create/Edit form collects and displays all four values; there is
+no ingredient-list grid column and no storefront or recipe-level surface yet. Computing a whole
+product/recipe's nutrition from the ingredients it is composed of is out of scope here —
+`IngredientComposition`/`ProductIngredientMapping` carry no quantity/weight field today, so there is
+nothing yet to multiply a per-100g value by; that aggregation is a separate future task once quantity
+tracking exists.
 
 ## Deletion is blocked while in use
 

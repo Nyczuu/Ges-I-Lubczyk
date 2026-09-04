@@ -1,0 +1,346 @@
+/* Gęś i Lubczyk brand theme — mini-cart restyle (GIL-003-05).
+
+   Per the frozen contract with GIL-003-01 (see this Task's spec, "Frozen contract" section): this file
+   owns the header cart trigger end-to-end (#topcartlink / .ico-cart / .cart-qty in
+   HeaderLinks/Default.cshtml), including its header appearance, in addition to the flyout drawer
+   contents below — header-footer.css deliberately does not touch that element.
+
+   Loaded last in Head.cshtml (after header-footer.css/home.css/catalog.css/product-details.css), so its
+   rules win the cascade against the base theme's styles.css at equal specificity without needing
+   `!important`. Every rule below consumes var(--gil-*) tokens from tokens.css; no color or font is
+   redefined here. */
+
+/* ---------------------------------------------------------------------------------------------------
+   Header cart trigger (#topcartlink / .ico-cart / .cart-qty)
+   --------------------------------------------------------------------------------------------------- */
+
+#topcartlink {
+    display: flex;
+    align-items: center;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    background-color: transparent;
+    padding: 0;
+}
+
+#topcartlink .ico-cart {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background-color: var(--gil-color-sage);
+    background-image: url('../images/shopping-bag.png');
+    background-repeat: no-repeat;
+    background-position: 16px center;
+    background-size: 15px 15px;
+    color: var(--gil-color-cream);
+    font-family: var(--gil-font-sans);
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 11px 18px 11px 38px;
+    border-radius: 999px;
+    transition: background-color .2s ease, box-shadow .2s ease;
+}
+
+#topcartlink .ico-cart:hover,
+#topcartlink .ico-cart:focus {
+    background-color: var(--gil-color-sage-light);
+    box-shadow: 0 2px 8px rgba(42, 51, 46, .18);
+}
+
+#topcartlink .cart-label {
+    color: var(--gil-color-cream);
+}
+
+#topcartlink .cart-qty {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    background-color: var(--gil-color-clay);
+    color: var(--gil-color-cream);
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 999px;
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   Drawer shell — #flyout-cart stays in flow at all times (position: fixed covers the viewport); the
+   backdrop/drawer's own opacity and transform, driven off the existing #flyout-cart.active class
+   (toggled by HeaderLinks/Default.cshtml's inline script, unchanged by this Task), are what actually
+   show or hide it. Overrides the base theme's `.flyout-cart { display: none; }`.
+   --------------------------------------------------------------------------------------------------- */
+
+#flyout-cart.flyout-cart {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+#flyout-cart.flyout-cart.active {
+    pointer-events: auto;
+}
+
+.gil-cart-backdrop {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(42, 51, 46, .45);
+    opacity: 0;
+    transition: opacity .3s ease;
+}
+
+#flyout-cart.active .gil-cart-backdrop {
+    opacity: 1;
+}
+
+.gil-cart-drawer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 420px;
+    background-color: var(--gil-color-linen);
+    box-shadow: -12px 0 32px rgba(42, 51, 46, .2);
+    transform: translateX(100%);
+    transition: transform .3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+#flyout-cart.active .gil-cart-drawer {
+    transform: translateX(0);
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   Drawer header
+   --------------------------------------------------------------------------------------------------- */
+
+.gil-cart-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 0 0 auto;
+    padding: 20px 24px;
+    background-color: var(--gil-color-cream);
+    border-bottom: 1px solid var(--gil-color-linen-dark);
+}
+
+.gil-cart-drawer-title {
+    margin: 0;
+    font-family: var(--gil-font-serif);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--gil-color-sage);
+}
+
+.gil-cart-close {
+    background: none;
+    border: none;
+    padding: 4px;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--gil-color-muted);
+    cursor: pointer;
+    border-radius: 8px;
+    transition: color .2s ease;
+}
+
+.gil-cart-close:hover,
+.gil-cart-close:focus {
+    color: var(--gil-color-ink);
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   Free-shipping bar — sage/leaf fill when reached (Model.FreeShippingReached), gold fill sized by
+   Model.FreeShippingProgressPercentage otherwise. Renders only when Model.DisplayFreeShippingBar is
+   true (FreeShippingOverXEnabled), per spec §6/§10 — no fabricated threshold shown when disabled.
+   --------------------------------------------------------------------------------------------------- */
+
+.gil-shipping-bar {
+    flex: 0 0 auto;
+    padding: 14px 24px;
+    background-color: var(--gil-color-sage-soft);
+    border-bottom: 1px solid var(--gil-color-linen-dark);
+    font-family: var(--gil-font-sans);
+}
+
+.gil-shipping-bar-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gil-color-sage);
+}
+
+.gil-shipping-bar-track {
+    width: 100%;
+    height: 8px;
+    background-color: var(--gil-color-linen-dark);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.gil-shipping-bar-fill {
+    height: 100%;
+    background-color: var(--gil-color-gold);
+    transition: width .3s ease;
+}
+
+.gil-shipping-bar.reached .gil-shipping-bar-fill {
+    background-color: var(--gil-color-leaf);
+}
+
+/* ---------------------------------------------------------------------------------------------------
+   Item list + subtotal + buttons — restyles the core view's own .mini-shopping-cart/.count/.items/
+   .item/.totals/.buttons structure, kept unchanged in the view markup.
+   --------------------------------------------------------------------------------------------------- */
+
+.gil-cart-drawer .mini-shopping-cart {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.gil-cart-drawer .count {
+    flex: 0 0 auto;
+    padding: 16px 24px;
+    font-family: var(--gil-font-sans);
+    font-size: 13px;
+    color: var(--gil-color-muted);
+}
+
+.gil-cart-drawer .count a {
+    color: var(--gil-color-sage);
+    font-weight: 600;
+}
+
+.gil-cart-drawer .items {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 0 24px;
+}
+
+.gil-cart-drawer .item {
+    display: flex;
+    gap: 12px;
+    padding: 16px 0;
+    border-top: 1px solid var(--gil-color-linen-dark);
+}
+
+.gil-cart-drawer .item.first {
+    border-top: none;
+}
+
+.gil-cart-drawer .picture {
+    flex: 0 0 auto;
+}
+
+.gil-cart-drawer .picture img {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 12px;
+    border: 1px solid var(--gil-color-linen-dark);
+}
+
+.gil-cart-drawer .product {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.gil-cart-drawer .name a {
+    font-family: var(--gil-font-serif);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--gil-color-sage);
+    text-decoration: none;
+}
+
+.gil-cart-drawer .name a:hover,
+.gil-cart-drawer .name a:focus {
+    color: var(--gil-color-sage-light);
+}
+
+.gil-cart-drawer .attributes {
+    margin-top: 4px;
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    color: var(--gil-color-muted);
+}
+
+.gil-cart-drawer .price,
+.gil-cart-drawer .quantity {
+    margin-top: 4px;
+    font-family: var(--gil-font-sans);
+    font-size: 12px;
+    color: var(--gil-color-muted);
+}
+
+.gil-cart-drawer .totals {
+    flex: 0 0 auto;
+    padding: 18px 24px;
+    background-color: var(--gil-color-cream);
+    border-top: 1px solid var(--gil-color-linen-dark);
+    font-family: var(--gil-font-sans);
+    font-size: 13px;
+    color: var(--gil-color-muted);
+}
+
+.gil-cart-drawer .totals strong {
+    font-family: var(--gil-font-serif);
+    font-size: 18px;
+    color: var(--gil-color-sage);
+}
+
+.gil-cart-drawer .buttons {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 24px 22px;
+    background-color: var(--gil-color-cream);
+}
+
+.gil-cart-drawer .buttons button {
+    border-radius: 999px;
+    padding: 13px 20px;
+    font-family: var(--gil-font-sans);
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color .2s ease, box-shadow .2s ease;
+}
+
+.gil-cart-drawer .checkout-button {
+    background-color: var(--gil-color-sage);
+    color: var(--gil-color-cream);
+    border: none;
+}
+
+.gil-cart-drawer .checkout-button:hover,
+.gil-cart-drawer .checkout-button:focus {
+    background-color: var(--gil-color-sage-light);
+}
+
+.gil-cart-drawer .cart-button {
+    background-color: transparent;
+    color: var(--gil-color-sage);
+    border: 1px solid var(--gil-color-sage);
+}
+
+.gil-cart-drawer .cart-button:hover,
+.gil-cart-drawer .cart-button:focus {
+    background-color: var(--gil-color-sage-soft);
+}

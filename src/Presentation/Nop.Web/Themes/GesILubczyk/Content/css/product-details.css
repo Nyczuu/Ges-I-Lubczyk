@@ -1,0 +1,24 @@
+.product-ingredients { margin: 0 0 24px; }
+.product-ingredients .title {
+  font-family: var(--gil-font-sans); font-weight: 700; font-size: 12px; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--gil-color-sage); margin: 0 0 6px;
+}
+.product-ingredients .value {
+  font-family: var(--gil-font-sans); font-size: 13px; line-height: 1.6; font-weight: 500;
+  color: var(--gil-color-ink); padding: 14px; background: var(--gil-color-linen);
+  border: 1px solid var(--gil-color-linen-dark); border-radius: 12px;
+}
+.product-serving-suggestion { margin: 24px 0; font-family: var(--gil-font-sans); }
+.product-serving-suggestion .heading {
+  font-weight: 700; font-size: 12px; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--gil-color-sage); margin: 0 0 4px;
+}
+.product-serving-suggestion .title {
+  font-family: var(--gil-font-serif); font-weight: 700; font-size: 18px; color: var(--gil-color-sage);
+  margin: 0 0 8px;
+}
+.product-serving-suggestion .picture img { max-width: 100%; border-radius: 12px; margin: 0 0 12px; }
+.product-serving-suggestion .description {
+  font-size: 13px; font-style: italic; line-height: 1.6; color: var(--gil-color-muted); margin: 0 0 12px;
+}
+.product-serving-suggestion .steps { padding-left: 20px; font-size: 13px; line-height: 1.6; color: var(--gil-color-ink); }

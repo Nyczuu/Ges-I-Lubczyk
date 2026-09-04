@@ -1,0 +1,55 @@
+@model GenerateProductionLabelModel
+
+@{
+    Layout = "_AdminPopupLayout";
+
+    ViewBag.PageTitle = T("Plugins.Misc.ProductionLabels.GenerateLabel").Text;
+}
+<form asp-controller="ProductionLabelsAdmin" asp-action="GenerateLabel">
+    <input asp-for="ProductionBatchId" type="hidden" />
+    <div class="content-header clearfix">
+        <h1 class="float-left">
+            @T("Plugins.Misc.ProductionLabels.GenerateLabel")
+        </h1>
+        <div class="float-right">
+            <button type="submit" name="download" class="btn btn-primary">
+                @T("Plugins.Misc.ProductionLabels.GenerateLabel")
+            </button>
+        </div>
+    </div>
+    <section class="content">
+        <div class="container-fluid">
+            <div class="form-horizontal">
+                <div class="cards-group">
+                    <div class="card card-default card-popup">
+                        <div class="card-body">
+                            <div class="form-group row">
+                                <div class="col-sm-3">
+                                    <nop-label asp-for="SizeVariant" />
+                                </div>
+                                <div class="col-sm-9">
+                                    <nop-select asp-for="SizeVariant" asp-items="Model.AvailableSizeVariants" />
+                                </div>
+                            </div>
+                            @if (Model.AvailableLanguages.Count > 1)
+                            {
+                                <div class="form-group row">
+                                    <div class="col-sm-3">
+                                        <nop-label asp-for="LanguageId" />
+                                    </div>
+                                    <div class="col-sm-9">
+                                        <nop-select asp-for="LanguageId" asp-items="Model.AvailableLanguages" />
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <input asp-for="LanguageId" type="hidden" />
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</form>

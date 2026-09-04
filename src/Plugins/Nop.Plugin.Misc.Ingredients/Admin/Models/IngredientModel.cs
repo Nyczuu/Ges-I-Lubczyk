@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Nop.Web.Framework.Models;
 using Nop.Web.Framework.Mvc.ModelBinding;
@@ -30,6 +31,22 @@ public partial record IngredientModel : BaseNopEntityModel, ILocalizedModel<Ingr
 
     [NopResourceDisplayName("Plugins.Misc.Ingredients.Fields.Allergen")]
     public int AllergenId { get; set; }
+
+    [NopResourceDisplayName("Plugins.Misc.Ingredients.Fields.CaloriesPer100g")]
+    [UIHint("Decimal")]
+    public decimal CaloriesPer100g { get; set; }
+
+    [NopResourceDisplayName("Plugins.Misc.Ingredients.Fields.ProteinPer100g")]
+    [UIHint("Decimal")]
+    public decimal ProteinPer100g { get; set; }
+
+    [NopResourceDisplayName("Plugins.Misc.Ingredients.Fields.FatPer100g")]
+    [UIHint("Decimal")]
+    public decimal FatPer100g { get; set; }
+
+    [NopResourceDisplayName("Plugins.Misc.Ingredients.Fields.CarbohydratePer100g")]
+    [UIHint("Decimal")]
+    public decimal CarbohydratePer100g { get; set; }
 
     public IList<SelectListItem> AvailableAllergenTypes { get; set; }
 

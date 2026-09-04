@@ -1154,6 +1154,25 @@ public partial class ShoppingCartModelFactory : IShoppingCartModelFactory
 
                     model.Items.Add(cartItemModel);
                 }
+
+                if (_shippingSettings.FreeShippingOverXEnabled)
+                {
+                    var (_, _, _, freeShippingSubTotalBase, _) = await _orderTotalCalculationService
+                        .GetShoppingCartSubTotalAsync(cart, _shippingSettings.FreeShippingOverXIncludingTax);
+
+                    model.DisplayFreeShippingBar = true;
+                    model.FreeShippingReached = await _orderTotalCalculationService.IsFreeShippingAsync(cart, freeShippingSubTotalBase);
+
+                    if (!model.FreeShippingReached)
+                    {
+                        var remainingBase = _shippingSettings.FreeShippingOverXValue - freeShippingSubTotalBase;
+                        var remaining = await _currencyService.ConvertFromPrimaryStoreCurrencyAsync(remainingBase, currentCurrency);
+                        model.AmountToFreeShipping = await _priceFormatter.FormatPriceAsync(remaining);
+                        model.FreeShippingProgressPercentage = _shippingSettings.FreeShippingOverXValue <= 0
+                            ? 0
+                            : (int)Math.Min(100, Math.Round(freeShippingSubTotalBase / _shippingSettings.FreeShippingOverXValue * 100));
+                    }
+                }
             }
         }
 

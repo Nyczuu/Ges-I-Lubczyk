@@ -1,0 +1,118 @@
+@model ProductionBatchSearchModel
+
+@{
+    ViewBag.PageTitle = T("Plugins.Misc.ProductionLabels.List").Text;
+    NopHtml.SetActiveMenuItemSystemName(ProductionLabelsDefaults.ProductionLabelsMenuSystemName);
+}
+
+<div class="content-header clearfix">
+    <h1 class="float-left">
+        @T("Plugins.Misc.ProductionLabels.List")
+    </h1>
+    <div class="float-right">
+        <button type="button" id="btnAddNewProductionBatch" class="btn btn-primary" onclick="javascript:OpenWindow('@(Url.Action("ProductionBatchCreatePopup", "ProductionLabelsAdmin", new {productId = 0, btnId = "btnRefreshProductionBatches", formId = "production-batches-search-form"}))', 800, 800, true); return false;">
+            <i class="fas fa-square-plus"></i>
+            @T("Plugins.Misc.ProductionLabels.List.AddNew")
+        </button>
+        <button type="submit" id="btnRefreshProductionBatches" style="display: none"></button>
+    </div>
+</div>
+
+<section class="content">
+    <div class="container-fluid">
+        <form id="production-batches-search-form">
+            <div class="form-horizontal">
+                <div class="cards-group">
+                    <div class="card card-default card-search">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group row">
+                                        <div class="col-md-4">
+                                            <nop-label asp-for="SearchProductId" />
+                                        </div>
+                                        <div class="col-md-8">
+                                            <nop-select asp-for="SearchProductId" asp-items="Model.AvailableProducts" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-8 offset-md-4">
+                                    <button type="button" id="search-production-batches" class="btn btn-primary btn-search">
+                                        <i class="fas fa-magnifying-glass"></i>
+                                        @T("Admin.Common.Search")
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card card-default">
+                        <div class="card-body">
+                            @await Html.PartialAsync("Table", new DataTablesModel
+                            {
+                                Name = "production-batches-grid",
+                                UrlRead = new DataUrl("List", "ProductionLabelsAdmin", null),
+                                UrlDelete = new DataUrl("ProductionBatchDelete", "ProductionLabelsAdmin", null),
+                                SearchButtonId = "search-production-batches",
+                                Length = Model.PageSize,
+                                LengthMenu = Model.AvailablePageSizes,
+                                Filters = new List<FilterParameter>
+                                {
+                                    new FilterParameter(nameof(Model.SearchProductId))
+                                },
+                                ColumnCollection = new List<ColumnProperty>
+                                {
+                                    new ColumnProperty(nameof(ProductionBatchModel.ProductName))
+                                    {
+                                        Title = T("Plugins.Misc.ProductionLabels.Fields.Product").Text
+                                    },
+                                    new ColumnProperty(nameof(ProductionBatchModel.BatchCode))
+                                    {
+                                        Title = T("Plugins.Misc.ProductionLabels.Fields.BatchCode").Text
+                                    },
+                                    new ColumnProperty(nameof(ProductionBatchModel.BestBeforeDateUtc))
+                                    {
+                                        Title = T("Plugins.Misc.ProductionLabels.Fields.BestBeforeDate").Text,
+                                        Render = new RenderDate()
+                                    },
+                                    new ColumnProperty(nameof(ProductionBatchModel.Quantity))
+                                    {
+                                        Title = T("Plugins.Misc.ProductionLabels.Fields.Quantity").Text,
+                                        ClassName = NopColumnClassDefaults.CenterAll
+                                    },
+                                    new ColumnProperty(nameof(ProductionBatchModel.Id))
+                                    {
+                                        Title = T("Plugins.Misc.ProductionLabels.GenerateLabel").Text,
+                                        Width = "150",
+                                        ClassName = NopColumnClassDefaults.Button,
+                                        Render = new RenderCustom("renderColumnGenerateLabel")
+                                    },
+                                    new ColumnProperty(nameof(ProductionBatchModel.Id))
+                                    {
+                                        Title = T("Admin.Common.Delete").Text,
+                                        Width = "100",
+                                        Render = new RenderButtonRemove(T("Admin.Common.Delete").Text),
+                                        ClassName = NopColumnClassDefaults.Button
+                                    }
+                                }
+                            })
+                            <script>
+                                function renderColumnGenerateLabel(data, type, row, meta) {
+                                    return '<button type="button" onclick="javascript:OpenWindow(\'@Url.Action("GenerateLabelPopup", "ProductionLabelsAdmin")' + '?productionBatchId=' + row.Id + '\', 800, 800, true); return false;" class="btn btn-default">@T("Plugins.Misc.ProductionLabels.GenerateLabel").Text</button>';
+                                }
+                                $(function() {
+                                    $('#btnRefreshProductionBatches').click(function () {
+                                        updateTable('#production-batches-grid');
+                                        return false;
+                                    });
+                                });
+                            </script>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>

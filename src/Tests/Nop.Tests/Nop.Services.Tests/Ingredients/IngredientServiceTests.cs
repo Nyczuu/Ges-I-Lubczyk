@@ -169,6 +169,73 @@ public class IngredientServiceTests : ServiceTest
     }
 
     [Test]
+    public async Task InsertIngredientAsync_PersistsNutritionalValues_IncludingAGenuineZero()
+    {
+        //water: a real ingredient that is genuinely zero-calorie/zero-macro, not "unknown"
+        var ingredient = CreateEntity("Water");
+        ingredient.CaloriesPer100g = 0m;
+        ingredient.ProteinPer100g = 0m;
+        ingredient.FatPer100g = 0m;
+        ingredient.CarbohydratePer100g = 0m;
+        await _ingredientService.InsertIngredientAsync(ingredient);
+
+        var reloaded = await _ingredientService.GetIngredientByIdAsync(ingredient.Id);
+
+        await _ingredientService.DeleteIngredientAsync(ingredient);
+
+        reloaded.CaloriesPer100g.Should().Be(0m);
+        reloaded.ProteinPer100g.Should().Be(0m);
+        reloaded.FatPer100g.Should().Be(0m);
+        reloaded.CarbohydratePer100g.Should().Be(0m);
+    }
+
+    [Test]
+    public async Task InsertIngredientAsync_PersistsNutritionalValues_WithNonZeroFigures()
+    {
+        var ingredient = CreateEntity("Chicken breast");
+        ingredient.CaloriesPer100g = 165.5m;
+        ingredient.ProteinPer100g = 31.02m;
+        ingredient.FatPer100g = 3.57m;
+        ingredient.CarbohydratePer100g = 0.1m;
+        await _ingredientService.InsertIngredientAsync(ingredient);
+
+        var reloaded = await _ingredientService.GetIngredientByIdAsync(ingredient.Id);
+
+        await _ingredientService.DeleteIngredientAsync(ingredient);
+
+        reloaded.CaloriesPer100g.Should().Be(165.5m);
+        reloaded.ProteinPer100g.Should().Be(31.02m);
+        reloaded.FatPer100g.Should().Be(3.57m);
+        reloaded.CarbohydratePer100g.Should().Be(0.1m);
+    }
+
+    [Test]
+    public async Task UpdateIngredientAsync_PersistsChangedNutritionalValues()
+    {
+        var ingredient = CreateEntity("Oat milk");
+        ingredient.CaloriesPer100g = 45m;
+        ingredient.ProteinPer100g = 1m;
+        ingredient.FatPer100g = 1.5m;
+        ingredient.CarbohydratePer100g = 6.5m;
+        await _ingredientService.InsertIngredientAsync(ingredient);
+
+        ingredient.CaloriesPer100g = 50m;
+        ingredient.ProteinPer100g = 2m;
+        ingredient.FatPer100g = 3m;
+        ingredient.CarbohydratePer100g = 7m;
+        await _ingredientService.UpdateIngredientAsync(ingredient);
+
+        var reloaded = await _ingredientService.GetIngredientByIdAsync(ingredient.Id);
+
+        await _ingredientService.DeleteIngredientAsync(ingredient);
+
+        reloaded.CaloriesPer100g.Should().Be(50m);
+        reloaded.ProteinPer100g.Should().Be(2m);
+        reloaded.FatPer100g.Should().Be(3m);
+        reloaded.CarbohydratePer100g.Should().Be(7m);
+    }
+
+    [Test]
     public async Task InsertIngredientAsync_SeedsAReflexiveClosureRow()
     {
         var ingredientClosureRepository = GetService<IRepository<IngredientClosure>>();
