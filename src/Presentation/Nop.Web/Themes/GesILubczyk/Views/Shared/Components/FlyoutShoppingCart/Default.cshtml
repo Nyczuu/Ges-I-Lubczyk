@@ -1,0 +1,125 @@
+@model MiniShoppingCartModel
+
+@using Nop.Core.Domain.Catalog
+@using Nop.Core.Http
+
+@inject INopUrlHelper NopUrl
+
+@* Gęś i Lubczyk brand theme - mini-cart slide-over drawer (GIL-003-05). Overrides the core partial,
+   keeping <div id="flyout-cart"> (external contract: public.ajaxcart.js:159 wholesale-replaces this
+   markup - including the trailing <script> below - on every add-to-cart via jQuery's replaceWith, so
+   the close-button wiring must be inline here rather than asp-location="Footer"). Backdrop and drawer
+   panel are purely CSS-driven off the existing #flyout-cart.active class already toggled by
+   HeaderLinks/Default.cshtml's inline script - that trigger is unchanged by this Task. *@
+
+<div id="flyout-cart" class="flyout-cart">
+    <div class="gil-cart-backdrop"></div>
+    <div class="gil-cart-drawer">
+        <div class="gil-cart-drawer-header">
+            <h3 class="gil-cart-drawer-title">@T("ShoppingCart")</h3>
+            <button type="button" class="gil-cart-close" title="@T("Common.Close")" aria-label="@T("Common.Close")">&times;</button>
+        </div>
+        @if (Model.DisplayFreeShippingBar)
+        {
+            <div class="gil-shipping-bar@(Model.FreeShippingReached ? " reached" : null)">
+                <div class="gil-shipping-bar-row">
+                    <span class="gil-shipping-bar-text">
+                        @if (Model.FreeShippingReached)
+                        {
+                            @T("ShoppingCart.Mini.FreeShipping.Reached")
+                        }
+                        else
+                        {
+                            @string.Format(T("ShoppingCart.Mini.FreeShipping.AmountToGo").Text, Model.AmountToFreeShipping)
+                        }
+                    </span>
+                    @if (!Model.FreeShippingReached)
+                    {
+                        <span class="gil-shipping-bar-percent">@(Model.FreeShippingProgressPercentage)%</span>
+                    }
+                </div>
+                <div class="gil-shipping-bar-track">
+                    <div class="gil-shipping-bar-fill" style="width: @(Model.FreeShippingReached ? 100 : Model.FreeShippingProgressPercentage)%"></div>
+                </div>
+            </div>
+        }
+        <div class="mini-shopping-cart">
+            <div class="count">
+                @if (Model.TotalProducts == 0)
+                {
+                    @T("ShoppingCart.Mini.NoItems")
+                }
+                else
+                {
+                    @Html.Raw(string.Format(T("ShoppingCart.Mini.ItemsText").Text, $"<a href=\"{Url.RouteUrl(NopRouteNames.General.CART)}\">{string.Format(T("ShoppingCart.Mini.Items").Text, Model.TotalProducts)}</a>"))
+                }
+            </div>
+            @if (Model.TotalProducts > 0)
+            {
+                <div class="items">
+                    @for (var i = 0; i < Model.Items.Count; i++)
+                    {
+                        var item = Model.Items[i];
+                        <div class="item @(i == 0 ? "first" : null)">
+                            @if (Model.ShowProductImages)
+                            {
+                                <div class="picture">
+                                    <a href="@(await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = item.ProductSeName }))" title="@item.Picture.Title">
+                                        <img alt="@item.Picture.AlternateText" src="@item.Picture.ImageUrl" title="@item.Picture.Title" />
+                                    </a>
+                                </div>
+                            }
+                            <div class="product">
+                                <div class="name">
+                                    <a href="@(await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = item.ProductSeName }))">@item.ProductName</a>
+                                </div>
+                                @if (!string.IsNullOrEmpty(item.AttributeInfo))
+                                {
+                                    <div class="attributes">
+                                        @Html.Raw(item.AttributeInfo)
+                                    </div>
+                                }
+                                <div class="price">@T("ShoppingCart.Mini.UnitPrice"): <span>@item.UnitPrice</span></div>
+                                <div class="quantity">@T("ShoppingCart.Mini.Quantity"): <span>@item.Quantity</span></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="totals">@T("ShoppingCart.Totals.SubTotal"): <strong>@Model.SubTotal</strong></div>
+                <div class="buttons">
+                    @if (Model.DisplayShoppingCartButton)
+                    {
+                        <button type="button" class="button-1 cart-button" onclick="setLocation('@(Url.RouteUrl(NopRouteNames.General.CART))')">@T("ShoppingCart.Mini.ViewCart")</button>
+                    }
+                    @if (Model.DisplayCheckoutButton)
+                    {
+                        var checkoutUrl = "";
+                        if (Model.AnonymousCheckoutAllowed && Model.CurrentCustomerIsGuest)
+                        {
+                            checkoutUrl = Url.RouteUrl(NopRouteNames.Standard.LOGIN_CHECKOUT_AS_GUEST, new { returnUrl = Url.RouteUrl(NopRouteNames.General.CART) });
+                        }
+                        else
+                        {
+                            checkoutUrl = Url.RouteUrl(NopRouteNames.Standard.CHECKOUT);
+                        }
+                        <button type="button" class="button-1 checkout-button" onclick="setLocation('@checkoutUrl')">@T("Checkout.Button")</button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        var flyoutCart = document.getElementById('flyout-cart');
+        if (!flyoutCart) {
+            return;
+        }
+        var closeButton = flyoutCart.querySelector('.gil-cart-close');
+        if (closeButton) {
+            closeButton.addEventListener('click', function () {
+                flyoutCart.classList.remove('active');
+            });
+        }
+    })();
+</script>
