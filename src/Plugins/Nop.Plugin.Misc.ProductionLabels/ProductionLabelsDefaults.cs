@@ -27,6 +27,12 @@ public class ProductionLabelsDefaults
     /// </summary>
     public static string CountryOfOriginAttributeKeyPrefix => "ProductionLabels.CountryOfOrigin.";
 
+    /// <summary>
+    /// Gets the key of the per-product (not per-language) default shelf-life days <see cref="Nop.Core.Domain.Common.GenericAttribute"/>,
+    /// used to prefill a new production batch's best-before date from its production date
+    /// </summary>
+    public static string DefaultShelfLifeDaysAttributeKey => "ProductionLabels.DefaultShelfLifeDays";
+
     public static class Routes
     {
         private const string ROUTE_PREFIX = "Plugin.Misc.ProductionLabels.Route.";

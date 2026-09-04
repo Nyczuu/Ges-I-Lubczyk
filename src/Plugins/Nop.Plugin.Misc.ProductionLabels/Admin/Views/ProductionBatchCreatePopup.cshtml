@@ -52,6 +52,7 @@
                             {
                                 <input asp-for="ProductId" type="hidden" />
                             }
+                            <input asp-for="DefaultShelfLifeDays" type="hidden" />
                             <div class="form-group row">
                                 <div class="col-sm-3">
                                     <nop-label asp-for="ProductionDateUtc" />
@@ -86,3 +87,70 @@
         </div>
     </section>
 </form>
+<script>
+    $(function () {
+        //don't clobber a manual edit (spec §6): once the admin has genuinely typed into Best-before
+        //themselves, further Production-date changes stop overwriting it. Programmatic .val(...) writes
+        //below never trigger a native 'change' event, so this flag only flips on a real user edit.
+        var bestBeforeManuallyEdited = false;
+
+        //UTC-based arithmetic (Date.parse treats a plain 'yyyy-MM-dd' string as UTC midnight) so the
+        //result is unaffected by the browser's local timezone/DST offset
+        function addDaysToIsoDate(isoDateString, days) {
+            var msPerDay = 24 * 60 * 60 * 1000;
+            var startTime = Date.parse(isoDateString);
+            if (isNaN(startTime))
+                return null;
+
+            var result = new Date(startTime + days * msPerDay);
+
+            var year = result.getUTCFullYear();
+            var month = ('0' + (result.getUTCMonth() + 1)).slice(-2);
+            var dayOfMonth = ('0' + result.getUTCDate()).slice(-2);
+
+            return year + '-' + month + '-' + dayOfMonth;
+        }
+
+        function prefillBestBeforeDate() {
+            var defaultShelfLifeDays = parseInt($('#DefaultShelfLifeDays').val(), 10);
+            if (isNaN(defaultShelfLifeDays) || bestBeforeManuallyEdited)
+                return;
+
+            var newBestBeforeDate = addDaysToIsoDate($('#ProductionDateUtc').val(), defaultShelfLifeDays);
+            if (newBestBeforeDate === null)
+                return;
+
+            $('#BestBeforeDateUtc').val(newBestBeforeDate);
+        }
+
+        $('#BestBeforeDateUtc').on('change', function () {
+            bestBeforeManuallyEdited = true;
+        });
+
+        $('#ProductionDateUtc').on('change', function () {
+            prefillBestBeforeDate();
+        });
+
+        @if (Model.AvailableProducts.Any())
+        {
+            <text>
+        //standalone flow only: the product isn't known until the admin picks one from the dropdown, so
+        //its configured default shelf-life is read on demand
+        $('#ProductId').on('change', function () {
+            $.ajax({
+                cache: false,
+                type: 'GET',
+                url: '@Url.Action("GetDefaultShelfLifeDays", "ProductionLabelsAdmin")',
+                data: { productId: $(this).val() },
+                success: function (data) {
+                    $('#DefaultShelfLifeDays').val(data.DefaultShelfLifeDays);
+                    //a new product selection is a fresh context - re-arm the prefill (Gate 1 resolution)
+                    bestBeforeManuallyEdited = false;
+                    prefillBestBeforeDate();
+                }
+            });
+        });
+            </text>
+        }
+    });
+</script>

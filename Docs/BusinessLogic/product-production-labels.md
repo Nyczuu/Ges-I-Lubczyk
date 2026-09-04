@@ -116,3 +116,28 @@ Uninstalling the plugin purges every configured language's `GenericAttribute` ro
 `GenericAttribute` row on a shared core table is not touched by this plugin's own migration `Down()`, so
 leaving this step out would orphan the data the same way skipping `LocalizedProperty` cleanup would for
 an `ILocalizedEntity`.
+
+## Default shelf-life prefills a new batch's best-before date, but never itself gets stored
+
+Shipped by [GIL-006](../Specs/GIL-006-default-shelf-life-prefill/spec.md). An admin can optionally set a
+default shelf-life, in days from production to best-before, once per product, on the same admin tab as
+Storage conditions/Country of origin. **Unlike those two fields, this one is not per-language** — a
+number of days has no translation — so it is a single flat `int?` property on
+`ProductionLabelsProductModel`, persisted as one `GenericAttribute` on `Product` keyed
+`ProductionLabels.DefaultShelfLifeDays` (no per-language key family). When provided it must be a positive
+integer; left blank it means "no default configured," and every batch-creation flow behaves exactly as it
+did before this field existed.
+
+The value only ever drives a **client-side** prefill in the "Add new production batch" popup (both the
+product-tab and standalone-section entry points): whenever the admin changes the Production date, the
+Best-before date field is recalculated as `production date + default shelf-life days` — but it remains a
+normal, freely editable input, and once the admin has manually typed into it themselves, further
+Production-date changes stop overwriting it (until a different product is selected in the standalone
+popup's product picker, which re-arms the prefill for the newly-chosen product). It never changes what
+gets persisted onto a `ProductionBatch` row: the admin's actually-submitted `BestBeforeDateUtc`, whether
+prefilled or manually overridden, remains the single source of truth once a batch is saved — the same
+posture already established for every other field on that row.
+
+Uninstalling the plugin purges this key too, via a single bulk
+`IGenericAttributeService.DeleteAttributesAsync<Product>(...)` sweep — no per-language enumeration is
+needed here, unlike its two per-language siblings above.

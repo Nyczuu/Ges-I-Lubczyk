@@ -130,6 +130,11 @@ public class ProductionLabelsPlugin : BasePlugin, IMiscPlugin, IWidgetPlugin
             ["Plugins.Misc.ProductionLabels.Fields.StorageConditions.Hint"] = "The storage conditions text printed on the label, for this language.",
             ["Plugins.Misc.ProductionLabels.Fields.CountryOfOrigin"] = "Country of origin",
             ["Plugins.Misc.ProductionLabels.Fields.CountryOfOrigin.Hint"] = "The country of origin text printed on the label, for this language.",
+            //also added by DefaultShelfLifeDaysMigration - duplicated here because MigrationProcessType.Update
+            //migrations are stamped as already-applied (not run) on a brand-new install, per PluginService.InsertPluginData
+            ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays"] = "Default shelf-life (days)",
+            ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.Hint"] = "The number of days from production to best-before, used to prefill new batches; leave blank for no default.",
+            ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.GreaterThanZero"] = "Default shelf-life (days) must be greater than zero.",
             ["Plugins.Misc.ProductionLabels.Fields.SizeVariant"] = "Label size",
             ["Plugins.Misc.ProductionLabels.Fields.SizeVariant.Hint"] = "The preset label size layout.",
             ["Plugins.Misc.ProductionLabels.Fields.Language"] = "Language",
@@ -193,6 +198,10 @@ public class ProductionLabelsPlugin : BasePlugin, IMiscPlugin, IWidgetPlugin
             await _genericAttributeService.DeleteAttributesAsync<Product>(ProductionLabelsDefaults.StorageConditionsAttributeKeyPrefix + language.Id);
             await _genericAttributeService.DeleteAttributesAsync<Product>(ProductionLabelsDefaults.CountryOfOriginAttributeKeyPrefix + language.Id);
         }
+
+        //not per-language (spec §7), unlike the two keys above - a single bulk sweep across every product
+        //that has one set
+        await _genericAttributeService.DeleteAttributesAsync<Product>(ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey);
 
         await base.UninstallAsync();
     }
