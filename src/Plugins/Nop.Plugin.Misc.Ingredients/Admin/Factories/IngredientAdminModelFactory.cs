@@ -95,11 +95,17 @@ public class IngredientAdminModelFactory
         var ingredients = await _ingredientService.GetAllIngredientsAsync(searchModel.SearchName,
             pageIndex: searchModel.Page - 1, pageSize: searchModel.PageSize);
 
+        var compositeIngredientIds = await _ingredientCompositionService.GetCompositeIngredientIdsAsync(
+            ingredients.Select(ingredient => ingredient.Id));
+
         var model = await new IngredientListModel().PrepareToGridAsync(searchModel, ingredients, () =>
         {
             return ingredients.SelectAwait(async ingredient =>
             {
                 var ingredientModel = ingredient.ToModel<IngredientModel>();
+
+                ingredientModel.AllergenName = await _localizationService.GetLocalizedEnumAsync(ingredient.Allergen);
+                ingredientModel.IsComposition = compositeIngredientIds.Contains(ingredient.Id);
 
                 return ingredientModel;
             });

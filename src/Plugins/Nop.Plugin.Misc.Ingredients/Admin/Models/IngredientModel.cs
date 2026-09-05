@@ -48,6 +48,12 @@ public partial record IngredientModel : BaseNopEntityModel, ILocalizedModel<Ingr
     [UIHint("Decimal")]
     public decimal CarbohydratePer100g { get; set; }
 
+    [NopResourceDisplayName("Plugins.Misc.Ingredients.Fields.Allergen")]
+    public string AllergenName { get; set; }
+
+    [NopResourceDisplayName("Plugins.Misc.Ingredients.Fields.IsComposition")]
+    public bool IsComposition { get; set; }
+
     public IList<SelectListItem> AvailableAllergenTypes { get; set; }
 
     public IList<IngredientLocalizedModel> Locales { get; set; }
