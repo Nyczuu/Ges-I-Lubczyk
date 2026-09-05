@@ -136,6 +136,8 @@ public class IngredientsPlugin : BasePlugin, IMiscPlugin, IWidgetPlugin
             ["Plugins.Misc.Ingredients.Fields.CarbohydratePer100g"] = "Carbohydrate per 100g (g)",
             ["Plugins.Misc.Ingredients.Fields.CarbohydratePer100g.Hint"] = "The carbohydrate content of this ingredient, in grams per 100g.",
             ["Plugins.Misc.Ingredients.Fields.CarbohydratePer100g.GreaterThanOrEqualZero"] = "Carbohydrate per 100g must be zero or greater.",
+            ["Plugins.Misc.Ingredients.Fields.IsComposition"] = "Composition",
+            ["Plugins.Misc.Ingredients.Fields.IsComposition.Hint"] = "Whether this ingredient is itself a composition of other ingredients.",
             ["Plugins.Misc.Ingredients.Fields.DisplayOrder"] = "Display order",
             ["Plugins.Misc.Ingredients.Fields.DisplayOrder.Hint"] = "The order the ingredient is displayed in.",
             ["Plugins.Misc.Ingredients.Fields.Ingredient"] = "Ingredient",

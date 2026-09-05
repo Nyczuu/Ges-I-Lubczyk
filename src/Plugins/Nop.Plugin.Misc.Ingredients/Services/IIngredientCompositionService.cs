@@ -19,6 +19,18 @@ public interface IIngredientCompositionService
     Task<IList<IngredientComposition>> GetChildCompositionsAsync(int parentIngredientId);
 
     /// <summary>
+    /// Gets which of the given ingredients are themselves composite (have at least one direct child
+    /// composition), for marking a "multi-ingredient composition" indicator in a grid without an
+    /// N+1 lookup per row
+    /// </summary>
+    /// <param name="ingredientIds">Ingredient identifiers to check</param>
+    /// <returns>
+    /// A task that represents the asynchronous operation
+    /// The task result contains the subset of <paramref name="ingredientIds"/> that are composite
+    /// </returns>
+    Task<IList<int>> GetCompositeIngredientIdsAsync(IEnumerable<int> ingredientIds);
+
+    /// <summary>
     /// Gets an ingredient composition by identifier
     /// </summary>
     /// <param name="ingredientCompositionId">Ingredient composition identifier</param>

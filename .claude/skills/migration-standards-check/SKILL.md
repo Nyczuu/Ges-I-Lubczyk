@@ -26,7 +26,27 @@ public class SchemaMigration : ForwardOnlyMigration
 - [ ] Attribute is `[NopSchemaMigration]` / `[NopMigration]` / `[NopUpdateMigration]` — never
       FluentMigrator's raw `[Migration(longVersion)]`.
 - [ ] The version is a **sortable timestamp string** `"yyyy-MM-dd HH:mm:ss"` set to authoring time, not
-      an incrementing counter. Two migrations must never share one.
+      an incrementing counter. Two migrations must never share one — and "never" is **solution-wide**,
+      not just within your own plugin: `MigrationVersionInfo` is a single global table with a unique
+      index on `Version`, and `NopMigrationAttribute.Version` is nothing but `Ticks` of the literal
+      timestamp string, with no per-plugin or per-assembly salt. Two unrelated plugins' migrations dated
+      the identical `"yyyy-MM-dd HH:mm:ss"` collide. Before landing a migration, grep the whole repo for
+      its exact date:
+      `grep -rn 'NopMigration("<your-date>' src` (or the equivalent Grep-tool call) and disambiguate with
+      the seconds field if anything else already uses it — see `Payments.PayPalCommerce`'s
+      `SchemaMigration`/`AdvancedCardsMigration` pair (`00:00:00` / `00:00:01` same day) or
+      `Tax.Avalara`'s `00:00:02` migrations for the precedent.
+      **The failure mode is silent and looks unrelated:** whichever migration's version gets recorded
+      first — including via `BaseDataProvider.InitializeDatabase()`'s "mark update migrations as
+      applied" fresh-install pass, which runs before any explicit `Installation`-type call and marks
+      every discovered `Update`-type migration as applied *without running it* — makes
+      `HasAppliedMigration` return true for that version number for every other migration that happens
+      to share it, so the second migration is skipped as "already applied." No exception, no log line;
+      the only symptom is the second migration's own table never getting created, surfacing later as a
+      "no such table" failure in a completely different plugin's tests. Confirmed reproduction: a new
+      `Nop.Plugin.Misc.Ingredients` migration dated identically to `Nop.Plugin.Misc.ProductionLabels`'s
+      `SchemaMigration` silently skipped the latter, failing 12+ unrelated `ProductionBatchServiceTests`
+      with `SQLite Error 1: 'no such table: ProductionBatch'`.
 - [ ] `MigrationProcessType` is set deliberately — `Installation` for a plugin's own schema.
 - [ ] Base class is `ForwardOnlyMigration` unless a genuine `Down()` is both possible and wanted.
 

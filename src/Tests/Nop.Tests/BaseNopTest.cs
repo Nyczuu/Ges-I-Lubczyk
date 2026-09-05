@@ -29,6 +29,7 @@ using Nop.Core.Configuration;
 using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Media;
+using Nop.Core.Domain.Tax;
 using Nop.Core.Events;
 using Nop.Core.Http;
 using Nop.Core.Infrastructure;
@@ -423,7 +424,7 @@ public partial class BaseNopTest
         services.AddTransient<IShippingMethodsService, ShippingMethodsService>();
         services.AddTransient<IDateRangeService, DateRangeService>();
         services.AddTransient<ITaxCategoryService, TaxCategoryService>();
-        services.AddTransient<ICheckVatService, CheckVatService>();
+        services.AddTransient<ICheckVatService, TestCheckVatService>();
         services.AddTransient<ITaxService, TaxService>();
         services.AddTransient<ILogger, DefaultLogger>();
         services.AddTransient<ICustomerActivityService, CustomerActivityService>();
@@ -702,6 +703,31 @@ public partial class BaseNopTest
         public async Task<Customer> GetAuthenticatedCustomerAsync()
         {
             return await _serviceProvider.GetService<ICustomerService>().GetCustomerByEmailAsync(NopTestsDefaults.AdminEmail);
+        }
+    }
+
+    /// <summary>
+    /// Deterministic stand-in for the real VIES SOAP client (CheckVatService), so tests never depend on
+    /// a live external network call to the EU VAT web service - that call is flaky in CI (timeouts,
+    /// throttling, the service itself being down) and, on failure, TaxService.DoVatCheckAsync's own
+    /// catch block falls back to VatNumberStatus.Unknown, which looks exactly like a real assertion
+    /// failure rather than a network hiccup. Statuses mirror TaxServiceTests.CanCheckVatNumber's
+    /// existing test cases.
+    /// </summary>
+    public class TestCheckVatService : ICheckVatService
+    {
+        public Task<(VatNumberStatus vatNumberStatus, string name, string address)> CheckVatAsync(string twoLetterIsoCode, string vatNumber)
+        {
+            var status = (twoLetterIsoCode, vatNumber) switch
+            {
+                ("GB", "553557881") => VatNumberStatus.Valid,
+                ("NO", "974761076") => VatNumberStatus.Unknown,
+                ("GB", "430479893") => VatNumberStatus.Invalid,
+                ("IT", "00478390347") => VatNumberStatus.Valid,
+                _ => VatNumberStatus.Unknown
+            };
+
+            return Task.FromResult((status, string.Empty, string.Empty));
         }
     }
 

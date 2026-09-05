@@ -207,7 +207,21 @@ public class ExportManagerTests : ServiceTest
     [Test]
     public async Task CanExportOrdersXlsx()
     {
-        var orders = await _orderService.SearchOrdersAsync();
+        //SearchOrdersAsync sorts by CreatedOnUtc desc, but sample data seeds several orders' CreatedOnUtc
+        //via successive DateTime.UtcNow calls with no artificial separation, so on a fast/coarse-clock
+        //environment two or more can collide on the same timestamp - ties in an ORDER BY have no
+        //guaranteed resulting order, so exporting/reading row 2 straight off that order can
+        //non-deterministically land on the "ShippingNotRequired" sample order (which legitimately has no
+        //ShippingAddressId), crashing the ShippingCountry assertions below with a NullReferenceException.
+        //Re-sort by Id - a real unique identity column that never ties and correlates with insertion
+        //order here - and require a resolvable shipping/pickup address, so row 2 of the export and the
+        //`order` used for comparison below are always the same, deterministic, shipping-capable record
+        //regardless of clock resolution. Confirmed via diagnostic dump: sample data seeds 5 orders, one of
+        //which (ShippingNotRequired) ties in CreatedOnUtc with another and has ShippingAddressId == null.
+        var orders = (await _orderService.SearchOrdersAsync())
+            .Where(o => o.PickupInStore ? o.PickupAddressId.HasValue : o.ShippingAddressId.HasValue)
+            .OrderByDescending(o => o.Id)
+            .ToList();
 
         var excelData = await _exportManager.ExportOrdersToXlsxAsync(orders);
         var workbook = GetWorkbook(excelData);
