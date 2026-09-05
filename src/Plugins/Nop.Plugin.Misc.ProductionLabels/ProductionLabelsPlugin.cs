@@ -133,7 +133,8 @@ public class ProductionLabelsPlugin : BasePlugin, IMiscPlugin, IWidgetPlugin
             //also added by DefaultShelfLifeDaysMigration - duplicated here because MigrationProcessType.Update
             //migrations are stamped as already-applied (not run) on a brand-new install, per PluginService.InsertPluginData
             ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays"] = "Default shelf-life (days)",
-            ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.Hint"] = "The number of days from production to best-before, used to prefill new batches; leave blank for no default.",
+            ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.Hint"] = "The number of days from production to best-before, used to prefill new batches.",
+            ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.Required"] = "Default shelf-life (days) is required.",
             ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.GreaterThanZero"] = "Default shelf-life (days) must be greater than zero.",
             ["Plugins.Misc.ProductionLabels.Fields.SizeVariant"] = "Label size",
             ["Plugins.Misc.ProductionLabels.Fields.SizeVariant.Hint"] = "The preset label size layout.",

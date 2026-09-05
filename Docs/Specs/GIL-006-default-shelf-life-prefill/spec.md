@@ -740,3 +740,44 @@ Non-blocking notes surfaced, all already accounted for rather than left open:
 Ships with one open, explicitly-flagged follow-up: manual browser verification of the client-side
 prefill/no-clobber behavior, consistent with the same posture GIL-005 already took for its own
 JS-adjacent admin flows.
+
+## Post-review amendment: required, not optional
+
+Raised by the developer during PR code review (before merge). §5/§6/§10 above originally made
+`DefaultShelfLifeDays` optional ("blank means no default configured"). The developer's concern: they
+did not want any product left in the store without a recorded shelf-life.
+
+**Considered and set aside:** a full "every product always has a value, guaranteed" mechanism — either
+a `NOT NULL` schema column on `Product` (rejected: touches `Nop.Core`, needs a backfill-then-constrain
+migration on a production entity table, and is data 100% specific to this one plugin, contradicting the
+plugin-first mandate for data no other part of the shop needs) or an `EntityInsertedEvent<Product>`
+consumer auto-writing a default `GenericAttribute` value at insert time plus a one-time backfill
+migration for existing products (verified technically sound — confirmed `IProductService.InsertProductAsync`
+→ `_productRepository.InsertAsync` → the repository itself publishes `EntityInsertedEvent<Product>`,
+so this would reliably fire for every standard insert path including nopCommerce's own Excel product
+import). **Developer's decision: neither is needed at this scale** — the store has one product at ship
+time, and the developer will set its value by hand rather than add either mechanism now.
+
+**Resolved:** the field is **required** at the validator layer — `ProductionLabelsProductValidator`
+gained a `.NotNull()` rule (new locale key `...DefaultShelfLifeDays.Required`), so `SaveProductInfo`
+now rejects a blank value on this tab, in addition to the existing `GreaterThan(0)` rule. This is
+enforcement at save time only, not a database-level guarantee: a brand-new product still has no
+`GenericAttribute` row until an admin visits this tab and saves a value (`GenericAttribute` is
+schema-free — there is nothing to backfill or default at insert time). The batch-creation popups' "no
+default configured, enter dates manually" fallback therefore still applies for that window, unchanged
+from the original design — required blocks a *blank save*, it does not retroactively guarantee every
+product already has a value.
+
+Changed in the same PR, before merge: `ProductionLabelsProductValidator.cs` (`.NotNull()` rule added),
+its migration and `InstallAsync`'s locale-resource dictionaries (new `.Required` key; `.Hint` reworded
+to drop the now-inaccurate "leave blank for no default"), `ProductionLabelsProductValidatorTests.cs`
+(`Validate_Succeeds_WhenDefaultShelfLifeDaysIsNull` flipped to `Validate_Fails_...`), the product-edit
+tab view (`asp-required="true"`, mirroring `Quantity`'s existing convention in this same plugin), and
+`Docs/BusinessLogic/product-production-labels.md`. No change was needed to the batch-popup prefill JS,
+the `GetDefaultShelfLifeDays` read endpoint, or the existing controller tests (they call the action
+directly, bypassing the MVC model-binding pipeline the validator runs through — confirmed by re-reading
+each, none construct a model relying on the old "null is valid" behavior in a way the validator would
+have caught).
+
+Re-ran build and the full test suite after this change: build succeeded, 0 warnings/errors; full suite
+passed, no new failures.

@@ -40,13 +40,14 @@ public class ProductionLabelsProductValidatorTests : ServiceTest
     }
 
     [Test]
-    public void Validate_Succeeds_WhenDefaultShelfLifeDaysIsNull()
+    public void Validate_Fails_WhenDefaultShelfLifeDaysIsNull()
     {
         var model = new ProductionLabelsProductModel { DefaultShelfLifeDays = null };
 
         var result = _validator.Validate(model);
 
-        result.IsValid.Should().BeTrue();
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.PropertyName == nameof(ProductionLabelsProductModel.DefaultShelfLifeDays));
     }
 
     [Test]

@@ -29,7 +29,8 @@ public class DefaultShelfLifeDaysMigration : MigrationBase
         this.AddOrUpdateLocaleResource(new Dictionary<string, string>
         {
             ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays"] = "Default shelf-life (days)",
-            ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.Hint"] = "The number of days from production to best-before, used to prefill new batches; leave blank for no default.",
+            ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.Hint"] = "The number of days from production to best-before, used to prefill new batches.",
+            ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.Required"] = "Default shelf-life (days) is required.",
             ["Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays.GreaterThanZero"] = "Default shelf-life (days) must be greater than zero."
         });
     }

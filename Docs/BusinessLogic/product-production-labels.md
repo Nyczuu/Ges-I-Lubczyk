@@ -119,14 +119,23 @@ an `ILocalizedEntity`.
 
 ## Default shelf-life prefills a new batch's best-before date, but never itself gets stored
 
-Shipped by [GIL-006](../Specs/GIL-006-default-shelf-life-prefill/spec.md). An admin can optionally set a
-default shelf-life, in days from production to best-before, once per product, on the same admin tab as
-Storage conditions/Country of origin. **Unlike those two fields, this one is not per-language** — a
-number of days has no translation — so it is a single flat `int?` property on
-`ProductionLabelsProductModel`, persisted as one `GenericAttribute` on `Product` keyed
-`ProductionLabels.DefaultShelfLifeDays` (no per-language key family). When provided it must be a positive
-integer; left blank it means "no default configured," and every batch-creation flow behaves exactly as it
-did before this field existed.
+Shipped by [GIL-006](../Specs/GIL-006-default-shelf-life-prefill/spec.md). An admin must set a default
+shelf-life, in days from production to best-before, once per product, on the same admin tab as Storage
+conditions/Country of origin — **required** (post-review amendment: the field was originally optional;
+changed to required before merge since the store owner did not want any product left without a
+recorded shelf-life). **Unlike those two fields, this one is not per-language** — a number of days has
+no translation — so it is a single flat `int?` property on `ProductionLabelsProductModel`, persisted as
+one `GenericAttribute` on `Product` keyed `ProductionLabels.DefaultShelfLifeDays` (no per-language key
+family). Must be a positive integer; the tab cannot be saved without one.
+
+Being "required" is enforced only at save time on this tab — it is not a database-level `NOT NULL`
+constraint (`GenericAttribute` is schema-free, so the row simply doesn't exist until the admin saves a
+value) and there is no automatic backfill or product-creation-time default: a brand-new product has no
+value until an admin visits this tab and saves one. That gap is deliberately left open rather than
+solved with a schema column or an `EntityInsertedEvent<Product>` auto-default — with only one product in
+the store at ship time, the store owner chose to set values by hand rather than add either mechanism.
+The batch-creation prefill's "no default configured" fallback (below) is what actually covers that
+window, exactly as it did when the field was optional.
 
 The value only ever drives a **client-side** prefill in the "Add new production batch" popup (both the
 product-tab and standalone-section entry points): whenever the admin changes the Production date, the
