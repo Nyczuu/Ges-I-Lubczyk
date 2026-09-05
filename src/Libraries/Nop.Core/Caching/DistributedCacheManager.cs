@@ -191,7 +191,15 @@ public abstract class DistributedCacheManager : CacheKeyService, IStaticCacheMan
         }
         finally
         {
-            _ = setTask.ContinueWith(_ => _ongoing.TryRemove(new KeyValuePair<string, Lazy<Task<object>>>(key.Key, lazy)));
+            //ExecuteSynchronously: when setTask is already complete (the exception path above, and the
+            //CacheTime == 0 / null-item early return, both leave setTask as the untouched Task.CompletedTask)
+            //this removal must happen before GetAsync returns/rethrows, not on a later thread-pool
+            //callback - otherwise a call for the same key made immediately afterwards can still find this
+            //(now-stale, exception-caching) Lazy in _ongoing and rethrow its cached exception instead of
+            //re-acquiring. Only the genuine pending-write case (a real in-flight SetStringAsync) still
+            //defers this continuation until that write completes, unchanged from before.
+            _ = setTask.ContinueWith(_ => _ongoing.TryRemove(new KeyValuePair<string, Lazy<Task<object>>>(key.Key, lazy)),
+                TaskContinuationOptions.ExecuteSynchronously);
         }
     }
 
