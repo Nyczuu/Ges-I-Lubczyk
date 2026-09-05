@@ -155,6 +155,29 @@ public class DistributedCacheManagerTests : BaseNopTest
         rez.Should().Be(1);
     }
 
+    //regression test for a real race: GetAsync's cleanup of its "ongoing acquisition" entry ran on a
+    //fire-and-forget ContinueWith, so a call immediately following a failed acquire for the same key could
+    //still find the stale (exception-caching) entry and rethrow the earlier exception instead of
+    //re-acquiring - observed for real in CI as an unhandled ApplicationException out of the second
+    //GetAsync call above, not merely a theoretical race. A single iteration only failed intermittently
+    //under real load (many tests' worth of thread-pool contention); looping tightly here makes the
+    //regression reliably observable without needing an actual multi-test CI run.
+    [Test]
+    public async Task RepeatedlyThrowsExceptionButNeverCachesIt()
+    {
+        for (var i = 0; i < 200; i++)
+        {
+            var cacheKey = new CacheKey($"some_key_race_{i}");
+
+            Assert.ThrowsAsync<ApplicationException>(() => _staticCacheManager.GetAsync(
+                cacheKey,
+                Task<object> () => throw new ApplicationException()));
+
+            var rez = await _staticCacheManager.GetAsync(cacheKey, Task<object> () => Task.FromResult((object)1));
+            rez.Should().Be(1);
+        }
+    }
+
     [Test]
     public async Task ExecutesSetInOrder()
     {
