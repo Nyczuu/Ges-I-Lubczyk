@@ -107,6 +107,23 @@ public class ProductionLabelsAdminController : BasePluginController
         return View("~/Plugins/Misc.ProductionLabels/Admin/Views/ProductionBatchCreatePopup.cshtml", model);
     }
 
+    /// <summary>
+    /// Reads the configured product's default shelf-life, in days - serves the standalone "Production"
+    /// section's create-batch popup, whose product picker means the product isn't known until the admin
+    /// makes a client-side selection (spec §6). Gated by the same permission as ProductionBatchCreatePopup,
+    /// the action whose flow it serves (spec §7 correction). The explicit Json result type override is
+    /// necessary: CheckPermissionAttribute's default resolution maps every GET request to Html (a redirect
+    /// to AccessDenied) regardless of whether it's an AJAX call.
+    /// </summary>
+    [CheckPermission(ProductionLabelsPermissionConfigManager.PRODUCTION_LABELS_CREATE,
+        CheckPermissionAttribute.CheckPermissionResultType.Json)]
+    public virtual async Task<IActionResult> GetDefaultShelfLifeDays(int productId)
+    {
+        var defaultShelfLifeDays = await _productionLabelsAdminModelFactory.GetDefaultShelfLifeDaysAsync(productId);
+
+        return Json(new { DefaultShelfLifeDays = defaultShelfLifeDays });
+    }
+
     [HttpPost]
     [FormValueRequired("save")]
     [CheckPermission(ProductionLabelsPermissionConfigManager.PRODUCTION_LABELS_CREATE)]
@@ -191,6 +208,14 @@ public class ProductionLabelsAdminController : BasePluginController
     [CheckPermission(ProductionLabelsPermissionConfigManager.PRODUCTION_LABELS_CREATE)]
     public virtual async Task<IActionResult> SaveProductInfo(ProductionLabelsProductModel model)
     {
+        if (!ModelState.IsValid)
+        {
+            foreach (var error in ModelState.Values.SelectMany(state => state.Errors))
+                _notificationService.ErrorNotification(error.ErrorMessage);
+
+            return RedirectToAction("Edit", "Product", new { id = model.ProductId, area = AreaNames.ADMIN });
+        }
+
         var product = await _productService.GetProductByIdAsync(model.ProductId)
             ?? throw new ArgumentException("No product found with the specified id", nameof(model));
 
@@ -218,6 +243,10 @@ public class ProductionLabelsAdminController : BasePluginController
             await _genericAttributeService.SaveAttributeAsync(product,
                 ProductionLabelsDefaults.CountryOfOriginAttributeKeyPrefix + languageId, model.CountryOfOrigin);
         }
+
+        //not per-language (spec §5/§6) - saved once, regardless of which branch above ran
+        await _genericAttributeService.SaveAttributeAsync(product,
+            ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey, model.DefaultShelfLifeDays);
 
         _notificationService.SuccessNotification(await _localizationService.GetResourceAsync("Plugins.Misc.ProductionLabels.ProductInfo.Saved"));
 

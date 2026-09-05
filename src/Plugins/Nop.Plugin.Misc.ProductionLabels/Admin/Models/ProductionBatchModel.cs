@@ -60,5 +60,13 @@ public partial record ProductionBatchModel : BaseNopEntityModel
     /// </summary>
     public IList<SelectListItem> AvailableProducts { get; set; }
 
+    /// <summary>
+    /// Gets or sets the configured product's default shelf-life, in days - not user-editable, rendered as a
+    /// hidden field only, feeding the popup's client-side best-before prefill script. Not present on the
+    /// <see cref="Nop.Plugin.Misc.ProductionLabels.Domain.ProductionBatch"/> entity, mirroring
+    /// <see cref="ProductName"/>/<see cref="AvailableProducts"/>'s existing unmapped-source-member precedent.
+    /// </summary>
+    public int? DefaultShelfLifeDays { get; set; }
+
     #endregion
 }

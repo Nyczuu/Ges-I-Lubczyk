@@ -233,6 +233,121 @@ public class ProductionLabelsAdminControllerTests : ServiceTest
     }
 
     /// <summary>
+    /// The regression case §6 of the spec exists to prevent: DefaultShelfLifeDays is not per-language, so it
+    /// must be saved regardless of which of SaveProductInfo's two mutually-exclusive branches ran - this
+    /// covers the Locales-populated (multi-language) branch.
+    /// </summary>
+    [Test]
+    public async Task SaveProductInfo_WhenLocalesArePosted_AlsoPersistsDefaultShelfLifeDays()
+    {
+        var product = await CreateProductAsync("Controller test - save default shelf-life multi-language product");
+
+        var model = new ProductionLabelsProductModel
+        {
+            ProductId = product.Id,
+            DefaultShelfLifeDays = 21,
+            Locales = new List<ProductionLabelsProductLocalizedModel>
+            {
+                new() { LanguageId = 1, StorageConditions = "Keep refrigerated", CountryOfOrigin = "Poland" }
+            }
+        };
+
+        await _controller.SaveProductInfo(model);
+
+        var defaultShelfLifeDays = await _genericAttributeService.GetAttributeAsync<Product, int?>(product.Id,
+            ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey);
+
+        await _productService.DeleteProductAsync(product);
+
+        defaultShelfLifeDays.Should().Be(21);
+    }
+
+    /// <summary>
+    /// The regression case §6 of the spec exists to prevent, single-language (flat-property fallback) branch.
+    /// </summary>
+    [Test]
+    public async Task SaveProductInfo_WhenLocalesAreEmpty_AlsoPersistsDefaultShelfLifeDays()
+    {
+        var product = await CreateProductAsync("Controller test - save default shelf-life single-language product");
+
+        var model = new ProductionLabelsProductModel
+        {
+            ProductId = product.Id,
+            DefaultShelfLifeDays = 30,
+            StorageConditions = "Keep cool and dry",
+            CountryOfOrigin = "Poland",
+            Locales = new List<ProductionLabelsProductLocalizedModel>()
+        };
+
+        await _controller.SaveProductInfo(model);
+
+        var defaultShelfLifeDays = await _genericAttributeService.GetAttributeAsync<Product, int?>(product.Id,
+            ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey);
+
+        await _productService.DeleteProductAsync(product);
+
+        defaultShelfLifeDays.Should().Be(30);
+    }
+
+    /// <summary>
+    /// SaveProductInfo previously never checked ModelState.IsValid at all (verified against the shipped
+    /// controller before this fix) - a validation error on DefaultShelfLifeDays would silently save the
+    /// invalid value anyway. This asserts the fix: an invalid ModelState shows an error notification and
+    /// does not persist the invalid value.
+    /// </summary>
+    [Test]
+    public async Task SaveProductInfo_WhenModelStateIsInvalid_DoesNotSaveAndShowsErrorNotification()
+    {
+        var product = await CreateProductAsync("Controller test - save product info invalid model state product");
+
+        var model = new ProductionLabelsProductModel
+        {
+            ProductId = product.Id,
+            DefaultShelfLifeDays = -1,
+            Locales = new List<ProductionLabelsProductLocalizedModel>()
+        };
+
+        _controller.ModelState.AddModelError(nameof(ProductionLabelsProductModel.DefaultShelfLifeDays), "Default shelf-life (days) must be greater than zero.");
+
+        await _controller.SaveProductInfo(model);
+
+        var defaultShelfLifeDays = await _genericAttributeService.GetAttributeAsync<Product, int?>(product.Id,
+            ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey);
+
+        await _productService.DeleteProductAsync(product);
+
+        defaultShelfLifeDays.Should().BeNull();
+        _notificationServiceMock.Verify(x => x.ErrorNotification(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<int>()), Times.Once);
+    }
+
+    [Test]
+    public async Task GetDefaultShelfLifeDays_WhenConfigured_ReturnsTheConfiguredValueAsJson()
+    {
+        var product = await CreateProductAsync("Controller test - get default shelf-life configured product");
+        await _genericAttributeService.SaveAttributeAsync(product, ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey, 14);
+
+        var result = await _controller.GetDefaultShelfLifeDays(product.Id);
+
+        await _productService.DeleteProductAsync(product);
+
+        var jsonResult = result.Should().BeOfType<JsonResult>().Subject;
+        jsonResult.Value.Should().BeEquivalentTo(new { DefaultShelfLifeDays = (int?)14 });
+    }
+
+    [Test]
+    public async Task GetDefaultShelfLifeDays_WhenUnconfigured_ReturnsNullAsJson()
+    {
+        var product = await CreateProductAsync("Controller test - get default shelf-life unconfigured product");
+
+        var result = await _controller.GetDefaultShelfLifeDays(product.Id);
+
+        await _productService.DeleteProductAsync(product);
+
+        var jsonResult = result.Should().BeOfType<JsonResult>().Subject;
+        jsonResult.Value.Should().BeEquivalentTo(new { DefaultShelfLifeDays = (int?)null });
+    }
+
+    /// <summary>
     /// The regression case: Html.LocalizedEditorAsync renders the standard (non-tabbed) template - posting
     /// the flat StorageConditions/CountryOfOrigin fields directly, not Locales[i].* - whenever at most one
     /// language is configured (Nop.Web.Framework/Extensions/HtmlExtensions.cs:46), so the model binder

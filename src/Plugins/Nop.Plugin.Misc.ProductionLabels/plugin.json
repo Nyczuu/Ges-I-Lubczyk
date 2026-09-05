@@ -2,7 +2,7 @@
   "Group": "Misc",
   "FriendlyName": "Production labels",
   "SystemName": "Misc.ProductionLabels",
-  "Version": "5.00.1",
+  "Version": "5.00.2",
   "SupportedVersions": [ "5.00" ],
   "Author": "Ges I Lubczyk",
   "DisplayOrder": 1,

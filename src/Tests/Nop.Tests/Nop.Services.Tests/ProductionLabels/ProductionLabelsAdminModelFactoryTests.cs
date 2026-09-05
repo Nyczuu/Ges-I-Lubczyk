@@ -207,6 +207,80 @@ public class ProductionLabelsAdminModelFactoryTests : ServiceTest
     }
 
     [Test]
+    public async Task GetDefaultShelfLifeDaysAsync_WhenConfigured_ReturnsTheConfiguredValue()
+    {
+        var product = await CreateProductAsync("Factory test - default shelf-life configured product");
+        await _genericAttributeService.SaveAttributeAsync(product,
+            ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey, 14);
+
+        var result = await _factory.GetDefaultShelfLifeDaysAsync(product.Id);
+
+        await _productService.DeleteProductAsync(product);
+
+        result.Should().Be(14);
+    }
+
+    [Test]
+    public async Task GetDefaultShelfLifeDaysAsync_WhenUnset_ReturnsNull()
+    {
+        var product = await CreateProductAsync("Factory test - default shelf-life unset product");
+
+        var result = await _factory.GetDefaultShelfLifeDaysAsync(product.Id);
+
+        await _productService.DeleteProductAsync(product);
+
+        result.Should().BeNull();
+    }
+
+    [Test]
+    public async Task PrepareProductionLabelsProductModelAsync_WhenDefaultShelfLifeDaysIsConfigured_PopulatesIt()
+    {
+        var product = await CreateProductAsync("Factory test - product model default shelf-life configured");
+        await _genericAttributeService.SaveAttributeAsync(product,
+            ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey, 21);
+
+        var model = await _factory.PrepareProductionLabelsProductModelAsync(product.Id);
+
+        await _productService.DeleteProductAsync(product);
+
+        model.DefaultShelfLifeDays.Should().Be(21);
+    }
+
+    [Test]
+    public async Task PrepareProductionLabelsProductModelAsync_WhenDefaultShelfLifeDaysIsUnset_LeavesItNull()
+    {
+        var product = await CreateProductAsync("Factory test - product model default shelf-life unset");
+
+        var model = await _factory.PrepareProductionLabelsProductModelAsync(product.Id);
+
+        await _productService.DeleteProductAsync(product);
+
+        model.DefaultShelfLifeDays.Should().BeNull();
+    }
+
+    [Test]
+    public async Task PrepareProductionBatchModelAsync_WhenProductIdIsNotZeroAndDefaultShelfLifeDaysIsConfigured_PopulatesIt()
+    {
+        var product = await CreateProductAsync("Factory test - batch model default shelf-life configured");
+        await _genericAttributeService.SaveAttributeAsync(product,
+            ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey, 30);
+
+        var model = await _factory.PrepareProductionBatchModelAsync(product.Id);
+
+        await _productService.DeleteProductAsync(product);
+
+        model.DefaultShelfLifeDays.Should().Be(30);
+    }
+
+    [Test]
+    public async Task PrepareProductionBatchModelAsync_WhenProductIdIsZero_LeavesDefaultShelfLifeDaysNull()
+    {
+        var model = await _factory.PrepareProductionBatchModelAsync(0);
+
+        model.DefaultShelfLifeDays.Should().BeNull();
+    }
+
+    [Test]
     public async Task PrepareProductionBatchModelAsync_WhenProductIdIsZero_PopulatesAvailableProductsFromTheCatalog()
     {
         var product = await CreateProductAsync("Factory test - batch model available products");

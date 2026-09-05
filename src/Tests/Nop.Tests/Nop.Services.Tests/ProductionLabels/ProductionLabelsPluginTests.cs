@@ -79,6 +79,7 @@ public class ProductionLabelsPluginTests : ServiceTest
         await _genericAttributeService.SaveAttributeAsync(product, ProductionLabelsDefaults.CountryOfOriginAttributeKeyPrefix + languageA.Id, "Poland A");
         await _genericAttributeService.SaveAttributeAsync(product, ProductionLabelsDefaults.StorageConditionsAttributeKeyPrefix + languageB.Id, "Keep cool B");
         await _genericAttributeService.SaveAttributeAsync(product, ProductionLabelsDefaults.CountryOfOriginAttributeKeyPrefix + languageB.Id, "Poland B");
+        await _genericAttributeService.SaveAttributeAsync(product, ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey, 14);
 
         await _productionLabelsPlugin.UninstallAsync();
 
@@ -87,6 +88,7 @@ public class ProductionLabelsPluginTests : ServiceTest
         var originA = await _genericAttributeService.GetAttributeAsync<string>(product, ProductionLabelsDefaults.CountryOfOriginAttributeKeyPrefix + languageA.Id);
         var storageB = await _genericAttributeService.GetAttributeAsync<string>(product, ProductionLabelsDefaults.StorageConditionsAttributeKeyPrefix + languageB.Id);
         var originB = await _genericAttributeService.GetAttributeAsync<string>(product, ProductionLabelsDefaults.CountryOfOriginAttributeKeyPrefix + languageB.Id);
+        var defaultShelfLifeDays = await _genericAttributeService.GetAttributeAsync<Product, int?>(product.Id, ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey);
 
         await _productService.DeleteProductAsync(product);
         await _languageService.DeleteLanguageAsync(languageA);
@@ -99,5 +101,6 @@ public class ProductionLabelsPluginTests : ServiceTest
         originA.Should().BeNullOrEmpty();
         storageB.Should().BeNullOrEmpty();
         originB.Should().BeNullOrEmpty();
+        defaultShelfLifeDays.Should().BeNull();
     }
 }

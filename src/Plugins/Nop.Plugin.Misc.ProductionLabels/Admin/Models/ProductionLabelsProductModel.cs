@@ -44,6 +44,16 @@ public partial record ProductionLabelsProductModel : BaseNopModel, ILocalizedMod
     [NopResourceDisplayName("Plugins.Misc.ProductionLabels.Fields.CountryOfOrigin")]
     public string CountryOfOrigin { get; set; }
 
+    /// <summary>
+    /// Gets or sets the default shelf-life, in days from production to best-before, used to prefill new
+    /// production batches for this product. Unlike <see cref="StorageConditions"/>/<see cref="CountryOfOrigin"/>,
+    /// this value is not per-language, so it is a single flat property (not nested under <see cref="Locales"/>).
+    /// Optional - null/blank means no default is configured and both dates in the batch popup are entered
+    /// manually, exactly as before this field existed.
+    /// </summary>
+    [NopResourceDisplayName("Plugins.Misc.ProductionLabels.Fields.DefaultShelfLifeDays")]
+    public int? DefaultShelfLifeDays { get; set; }
+
     public IList<ProductionLabelsProductLocalizedModel> Locales { get; set; }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Nop.Core;
+using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Localization;
 using Nop.Core.Domain.Stores;
 using Nop.Plugin.Misc.ProductionLabels.Admin.Models;
@@ -83,6 +84,17 @@ public class ProductionLabelsAdminModelFactory
     #region Methods
 
     /// <summary>
+    /// Gets the product's configured default shelf-life, in days from production to best-before - null when
+    /// no default is configured for this product. Shared by the product-edit tab, the product-tab batch-popup
+    /// flow, and the standalone flow's by-productId read endpoint.
+    /// </summary>
+    public virtual async Task<int?> GetDefaultShelfLifeDaysAsync(int productId)
+    {
+        return await _genericAttributeService.GetAttributeAsync<Product, int?>(productId,
+            ProductionLabelsDefaults.DefaultShelfLifeDaysAttributeKey);
+    }
+
+    /// <summary>
     /// Prepare production batch search model for the standalone "Production" section, including its own
     /// "filter by product" dropdown (the product-edit page tab's own search model is scoped and populated
     /// separately via <see cref="PrepareProductionLabelsProductModelAsync"/> and never reaches this method)
@@ -149,6 +161,8 @@ public class ProductionLabelsAdminModelFactory
 
         if (productId == 0)
             await PrepareAvailableProductsAsync(model.AvailableProducts);
+        else
+            model.DefaultShelfLifeDays = await GetDefaultShelfLifeDaysAsync(productId);
 
         return model;
     }
@@ -170,6 +184,8 @@ public class ProductionLabelsAdminModelFactory
         if (productId > 0)
         {
             var product = await _productService.GetProductByIdAsync(productId);
+
+            model.DefaultShelfLifeDays = await GetDefaultShelfLifeDaysAsync(productId);
 
             model.Locales = await _localizedModelFactory.PrepareLocalizedModelsAsync<ProductionLabelsProductLocalizedModel>(async (locale, languageId) =>
             {
