@@ -33,14 +33,14 @@ exists here — that absence is deliberate, not an oversight.
 ## The label
 
 "Generate label" renders one of two preset size layouts (small jar / large jar — same content, geometry
-only differs) for one product+batch, as a downloadable PDF. **As shipped, this throws a clear error on
-every invocation**: the HTML-to-PDF rendering library is a deliberately open decision (spec §13, pending
-a real build-and-render smoke test against this store's Alpine-based Docker image), so
-`IHtmlToPdfConverter` is registered with a placeholder implementation that always throws
-`NopException("HTML to PDF conversion is not yet configured for this store.")` rather than being left
-unregistered (which would have broken every other action on the admin controller, not just this one —
-see `Services/Pdf/NotYetAvailableHtmlToPdfConverter.cs`). Batch logging/history is fully functional
-regardless. Content, field by field, once a real converter is wired in:
+only differs) for one product+batch, as a downloadable PDF. The HTML-to-PDF rendering library (spec §13)
+is **PuppeteerSharp**, confirmed by a real build-and-render smoke test against this store's Alpine-based
+Docker image: `PuppeteerSharpHtmlToPdfConverter` launches headless Chromium (the `chromium` apk package in
+the runtime image — PuppeteerSharp's own bundled downloader fetches a glibc build that does not run on
+musl/Alpine) and renders the label template through it. The template drives the actual PDF page size
+itself, via a `@page { size: ...; margin: 0; }` rule matched to the chosen size variant — not a
+converter-API parameter — rendered with PuppeteerSharp's `PreferCSSPageSize`, since its own default would
+otherwise ignore the template and print onto a fixed Letter-sized page. Content, field by field:
 
 | Field | Source |
 |---|---|
@@ -90,6 +90,16 @@ the ingredient-read path catches PostgreSQL's `undefined_table` condition (SQLST
 — narrow enough that a genuine connection failure or an unrelated query bug still surfaces normally — and
 degrades to the same empty-ingredients rendering a product with zero mapped ingredients already gets,
 logging a warning so the cause is discoverable later.
+
+### Runtime image requirement
+
+The repo-root `Dockerfile`'s runtime stage installs the `chromium` and `ttf-freefont` apk packages and
+sets `PRODUCTIONLABELS_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser`, which
+`PuppeteerSharpHtmlToPdfConverter` reads to launch that system binary directly instead of attempting its
+own (incompatible, on musl/Alpine) download. On a developer machine, where that environment variable is
+unset, PuppeteerSharp downloads a compatible Chromium build itself on first use. The browser process is
+launched once per running instance (cached in a static field — see the converter's own remarks) and
+reused across every label generation, since starting it costs roughly a second.
 
 ### Label language
 

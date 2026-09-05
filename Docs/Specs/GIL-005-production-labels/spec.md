@@ -859,3 +859,78 @@ touching the shared core test out of scope.
 **Final state:** 1225 tests, 0 failures (verified independently, not only via subagent report). Ships
 with two known, non-blocking follow-ups: the `IHtmlToPdfConverter` library choice itself, and the
 pre-ship `DisplayOrder` data-quality pass (§5) — neither is code, both are already tracked above.
+
+## PDF library resolution (follow-up)
+
+The first of the two follow-ups above is now resolved: **PuppeteerSharp**, as §13's desk-research lead
+proposed, confirmed by an actual build-and-render smoke test against this repo's real Alpine-based
+runtime image (`mcr.microsoft.com/dotnet/aspnet:10.0-alpine`), not carried forward as an unverified
+assumption.
+
+**Smoke test performed** (raw Chromium CLI, before writing any C#, to isolate the runtime-environment
+question from the library-binding question): pulled the exact base image, confirmed its Alpine version
+(3.24.1), ran `apk add --no-cache chromium ttf-freefont`, and rendered a minimal HTML document containing
+`@page { size: 70mm 70mm; margin: 0; }` via `chromium-browser --headless --no-sandbox --disable-gpu
+--disable-dev-shm-usage --print-to-pdf=...`. Result: a valid PDF (`%PDF-1.4` header) with `/MediaBox [0 0
+198 198]` — 70mm at 72dpi, confirming the engine honors the template's own `@page` size rather than
+defaulting to a fixed paper size. Chromium logs GPU/ANGLE/Vulkan initialization errors on this path
+(no Vulkan-capable GPU inside the container) but falls back to software rendering and still produces
+correct output — noise, not a defect. `--no-sandbox` is required specifically because this Dockerfile's
+runtime container has no `USER` directive and therefore runs as root, and Chromium's setuid sandbox
+refuses to run as root at all; `--disable-dev-shm-usage` avoids renderer crashes against Docker's default
+64MB `/dev/shm`.
+
+**C# binding**: `Services/Pdf/PuppeteerSharpHtmlToPdfConverter.cs` (`PuppeteerSharp` 25.8.0) launches
+headless Chromium with the same two flags, reading the binary's path from a new environment variable
+(`ProductionLabelsDefaults.ChromiumExecutablePathEnvironmentVariable`,
+`PRODUCTIONLABELS_CHROMIUM_EXECUTABLE_PATH`) that the Dockerfile's runtime stage sets to
+`/usr/bin/chromium-browser` — left unset on a developer machine, where PuppeteerSharp's own downloader
+fetches a compatible build itself (its bundled downloader fetches a glibc build, which does not run on
+musl/Alpine, hence the apk package in the image rather than relying on that downloader there). The
+already-approved design's own page-size-is-CSS-driven decision (`IHtmlToPdfConverter.ConvertAsync(string
+html)` takes only the HTML) now has a concrete mechanism: `ProductionLabelTemplate.cshtml` gained a
+`@page { size: ...; margin: 0; }` rule computed from `Model.SizeVariant` (a `@page` at-rule cannot itself
+be scoped by a class selector, so the choice between the two preset sizes is made in the Razor code block,
+not in CSS), and the converter renders with PuppeteerSharp's `PdfOptions.PreferCSSPageSize = true` (its
+own default is `false`, which would otherwise print onto a fixed Letter-sized page regardless of the
+template) and explicit zero `MarginOptions` (the template's own `.label` padding is the intended inset;
+a PDF-level page margin on top of it would double it).
+
+The browser process is expensive to start (roughly a second) and is cached in a `static` field, shared
+across every request for the process's lifetime, rather than tied to this converter class's own scoped DI
+registration (unchanged) or launched per `ConvertAsync` call.
+
+The now-superseded placeholder (`NotYetAvailableHtmlToPdfConverter`, registered purely so
+`ProductionLabelsAdminController` could still be constructed while this choice stayed open) and its test
+are removed; `PluginServiceRegistrar` now registers `PuppeteerSharpHtmlToPdfConverter` directly.
+
+**Dockerfile**: the runtime stage installs `chromium` and `ttf-freefont` (the latter supplies glyphs for
+the label template's `Arial, Helvetica, sans-serif` stack, which the base image otherwise has none of) and
+sets the environment variable above. The build stage is untouched — rendering happens only at runtime, not
+during the build.
+
+**Verification actually performed** (targeted re-verification, not the full nine-check gate - see below
+for why that bar fits this change): `dotnet build NopCommerce.sln --no-incremental -c Release` clean;
+`dotnet test NopCommerce.sln` - 1226 total (1225 + the net +1 from removing
+`NotYetAvailableHtmlToPdfConverterTests` and adding two real `PuppeteerSharpHtmlToPdfConverterTests`),
+1216 passed, 10 skipped (pre-existing, unrelated to this change), 0 failed; the label-generation path's
+own 56 `Nop.Tests.Nop.Services.Tests.ProductionLabels` tests individually confirmed passing, including a
+real (non-mocked) `ConvertAsync` call that launches Chromium and asserts a genuine `%PDF-` result. Beyond
+the test suite: built the actual repo-root `Dockerfile` end to end
+(`docker build -t productionlabels-smoketest .`) - full-solution build and publish inside the `sdk:10.0-
+alpine` stage succeeded unchanged, and the resulting runtime image was inspected directly (`docker run
+--entrypoint sh`): `chromium-browser --version` succeeds, the `PRODUCTIONLABELS_CHROMIUM_EXECUTABLE_PATH`
+environment variable resolves to that same binary, and `PuppeteerSharp.dll` plus its two transitive
+dependencies (`ReactiveExtensionsSharp.dll`, `WebDriverBiDi.dll`) are present in
+`/app/Plugins/Misc.ProductionLabels/` - confirming `CopyLocalLockFileAssemblies=true` actually lands them
+where the plugin loader looks. The test-suite run itself (Windows, not the Alpine image) is where the
+real, non-mocked Chromium render was exercised; the image-level check confirms the production environment
+carries the same binary and the plugin carries the same library, not a second live render inside the
+container (no database is wired up in this smoke test, and the admin controller's full request pipeline
+needs one) - `chromium-browser --headless --no-sandbox --print-to-pdf` under the identical Alpine base
+image was already exercised directly during the desk-research phase above, before any C# was written.
+
+**Not re-run**: the full nine-check post-implementation gate that produced the "Final state" above. Given
+the narrow, additive nature of this change (one interface implementation swapped in behind an
+already-approved seam, one Dockerfile addition, no schema/permission/localization change), the targeted
+re-verification above is judged sufficient rather than a full second nine-check pass.
