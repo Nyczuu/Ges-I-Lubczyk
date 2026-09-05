@@ -2,10 +2,11 @@
 name: plan-and-implement
 description: >-
   Load this once a spec in Docs/Specs has reached Status Ready, to take it from an agreed domain
-  design through a developer-approved implementation plan to shipped, reviewed code. Single entry
-  point for both a standalone Task and an Epic — an Epic is handled as N>=1 units through the
-  identical procedure via task-decomposer, not a separate pipeline. Two hard developer-approval
-  stops before any code is written, with no bypass for small changes. Does not create PRs.
+  design through a developer-approved implementation plan to shipped, reviewed code, ending with a
+  pull request once the developer confirms. Single entry point for both a standalone Task and an
+  Epic — an Epic is handled as N>=1 units through the identical procedure via task-decomposer, not a
+  separate pipeline. Two hard developer-approval stops before any code is written, with no bypass for
+  small changes; opening the PR is a third, separate confirmation, never folded into an earlier one.
 ---
 
 # Plan and Implement
@@ -126,8 +127,16 @@ unrefined spec.
     still hold in the shipped code, deployment sequencing. Different question from per-unit
     `integration-auditor` — both run, neither replaces the other.
 
-11. **Report a summary:** what is implemented and reviewed, what the gate found, what is still open, and
-    an explicit reminder that **this skill does not create PRs** — that stays a separate, deliberate step.
+11. **Report a summary:** what is implemented and reviewed, what the gate found, and what is still open.
+
+12. **Ask whether to open a PR now** — a one-line question, not folded into the step 11 summary's own
+    text. This is the default final step of the workflow, but pushing a branch and opening a PR are
+    both actions that need the developer's explicit go-ahead *in this run*, every run — Gate 1/Gate 2
+    approval, or an earlier session's approval to open a PR, does not carry over. If they say yes: push
+    the integration branch, open the PR (base `develop` unless told otherwise) with a summary mirroring
+    step 11's report and a test-plan checklist reflecting what the gate actually ran, and give the
+    developer the PR link. If they say no or don't respond, stop here — the branch stays local/pushed-
+    but-un-PR'd, nothing further happens on its own.
 
 ## Guardrails
 
@@ -144,3 +153,5 @@ unrefined spec.
 - If implementing a unit turns out to require a change to `Nop.Core`/`Nop.Data`/`Nop.Services`/
   `Nop.Web(.Framework)` beyond an additive nullable property, stop and get explicit human confirmation —
   rule 3 of `Docs/ai-harness/00-system-instructions.md` is not the implementing agent's call to make.
+- Never push the integration branch or open the PR without asking first, in this run — an earlier
+  approval (Gate 1, Gate 2, or a prior session's PR) never implies consent for this one.
